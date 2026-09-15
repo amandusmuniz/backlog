@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard Executivo TI</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- Bootstrap Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (XLSX) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+    <style>
+        :root {
+            --jbs-red: #bf0000;
+            --jbs-gray: #f4f6f8;
+        }
+
+        body {
+            background: var(--jbs-gray);
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        .navbar {
+            background: var(--jbs-red);
+        }
+
+        .card-kpi {
+            border: 2px solid transparent;
+            border-radius: 16px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .08);
+            background-color: #ffffff;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .card-kpi:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, .15);
+            border-color: var(--jbs-red);
+        }
+
+        .card-kpi.active-kpi {
+            border-color: var(--jbs-red);
+            background-color: #fff5f5;
+        }
+
+        .kpi {
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .08);
+            height: 100%;
+        }
+
+        .section {
+            margin-top: 25px;
+        }
+
+        .semaforo {
+            font-size: 40px;
+            line-height: 1;
+            margin-bottom: 5px;
+        }
+
+        .upload-card {
+            background: #ffffff;
+            border: 2px dashed #bf0000;
+            border-radius: 12px;
+            padding: 15px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar navbar-dark mb-4 shadow-sm">
+        <div class="container-fluid">
+            <span class="navbar-brand fw-bold">
+                📊 Dashboard Executivo TI
+            </span>
+            <span class="navbar-text text-white" id="ultimaAtualizacao">
+                Aguardando arquivo...
+            </span>
+        </div>
+    </nav>
+
+    <div class="container-fluid pb-5">
+
+        <!-- Upload Manual -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="upload-card d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div>
+                        <h6 class="fw-bold mb-1 text-danger">📂 Carregar Planilha Excel</h6>
+                        <small class="text-muted">Selecione o arquivo <code>Dashboard_Backlog_All_Pendent.xlsx</code> do seu computador</small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="file" id="fileInput" class="form-control" accept=".xlsx, .xls">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPIs Clicáveis -->
+        <div class="row g-3">
+            <div class="col-md-2">
+                <div class="card card-kpi" onclick="filtrarPorKPI('TODOS_ATIVOS', this)">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">Total Backlog (Ativo)</h6>
+                        <div id="kpiBacklog" class="kpi">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="card card-kpi" onclick="filtrarPorKPI('HOLD', this)">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">Em Hold (Isolados)</h6>
+                        <div id="kpiHold" class="kpi text-secondary">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="card card-kpi" onclick="filtrarPorKPI('HOMOLOGACAO', this)">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">Homologação</h6>
+                        <div id="kpiHomologacao" class="kpi text-warning">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="card card-kpi" onclick="filtrarPorKPI('DEV', this)">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">Desenvolvimento</h6>
+                        <div id="kpiDev" class="kpi text-primary">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="card card-kpi" onclick="filtrarPorKPI('IMPEDITIVOS', this)">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">Impeditivos</h6>
+                        <div id="kpiImpeditivos" class="kpi text-danger">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="card card-kpi" onclick="filtrarPorKPI('TODOS_ATIVOS', this)">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">Forecast (Ativo)</h6>
+                        <div id="kpiForecast" class="kpi text-success">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Semáforos Executivos -->
+        <div class="row section">
+            <div class="col-12">
+                <div class="chart-card">
+                    <h5 class="fw-bold mb-3">🚦 Semáforo Executivo por Departamento (Somente Ativos)</h5>
+                    <div class="row text-center mt-3">
+                        <div class="col">
+                            <div id="semComex" class="semaforo">⚪</div>
+                            <small class="fw-bold text-secondary">COMEX</small>
+                        </div>
+                        <div class="col">
+                            <div id="semFat" class="semaforo">⚪</div>
+                            <small class="fw-bold text-secondary">Faturamento</small>
+                        </div>
+                        <div class="col">
+                            <div id="semOperacao" class="semaforo">⚪</div>
+                            <small class="fw-bold text-secondary">Operação</small>
+                        </div>
+                        <div class="col">
+                            <div id="semReceita" class="semaforo">⚪</div>
+                            <small class="fw-bold text-secondary">Receita</small>
+                        </div>
+                        <div class="col">
+                            <div id="semTI" class="semaforo">⚪</div>
+                            <small class="fw-bold text-secondary">TI</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráficos -->
+        <div class="row section g-4">
+            <div class="col-md-6">
+                <div class="chart-card">
+                    <h5 class="fw-bold mb-3">Backlog por Área</h5>
+                    <canvas id="chartArea" height="200"></canvas>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="chart-card">
+                    <h5 class="fw-bold mb-3">Status Atual (Coluna)</h5>
+                    <canvas id="chartStatus" height="200"></canvas>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="chart-card">
+                    <h5 class="fw-bold mb-3">Prioridade</h5>
+                    <canvas id="chartPrioridade" height="200"></canvas>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="chart-card">
+                    <h5 class="fw-bold mb-3">Responsáveis</h5>
+                    <canvas id="chartResponsavel" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Capacidade e Forecast Burndown -->
+        <div class="row section g-4">
+            <div class="col-md-6">
+                <div class="chart-card d-flex flex-column justify-content-center">
+                    <h5 class="fw-bold mb-3">Capacidade x Backlog Ativo</h5>
+                    <div class="progress mb-3" style="height:35px">
+                        <div id="backlogProgress" class="progress-bar bg-danger progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div id="capacidadeTexto" class="text-secondary text-center fs-6"></div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="chart-card">
+                    <h5 class="fw-bold mb-3">Burndown Forecast (Horas Ativas)</h5>
+                    <canvas id="chartBurndown" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabela Detalhada com indicador de Filtro Ativo -->
+        <div class="row section" id="secaoTabela">
+            <div class="col-12">
+                <div class="chart-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold m-0">Backlog Detalhado</h5>
+                        <div id="indicadorFiltro" class="d-none align-items-center gap-2">
+                            <span class="badge bg-danger fs-6" id="badgeFiltro">Filtro Ativo</span>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="limparFiltroKPI()">Limpar Filtro</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="tblBacklog" class="table table-striped table-hover align-middle w-100">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Título</th>
+                                    <th>Área</th>
+                                    <th>Status</th>
+                                    <th>Prioridade</th>
+                                    <th>Responsável</th>
+                                    <th>Horas</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let chartArea, chartStatus, chartPrioridade, chartResponsavel, chartBurndown;
+        let dadosCompletos = [];
+        const CAPACIDADE_MENSAL = 780;
+
+        // Leitura via File Input
+        document.getElementById('fileInput').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const buffer = e.target.result;
+                processarExcel(buffer);
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        async function carregarExcelAutomatico() {
+            try {
+                const response = await fetch("./Dashboard_Backlog_All_Pendent.xlsx?v=" + new Date().getTime());
+                if (!response.ok) throw new Error("Fetch desabilitado.");
+                const buffer = await response.arrayBuffer();
+                processarExcel(buffer);
+            } catch (err) {
+                document.getElementById("ultimaAtualizacao").innerText = "Selecione o arquivo acima para carregar os dados.";
+            }
+        }
+
+        function processarExcel(buffer) {
+            try {
+                const workbook = XLSX.read(buffer, { type: "array" });
+                let sheetName = workbook.SheetNames.find(s => s.includes("Pendent")) || workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+
+                dadosCompletos = XLSX.utils.sheet_to_json(worksheet, { range: 1, defval: "" });
+
+                document.getElementById("ultimaAtualizacao").innerText = "Atualizado em: " + new Date().toLocaleTimeString();
+                montarDashboard(dadosCompletos);
+            } catch (err) {
+                console.error("Erro ao processar planilha:", err);
+                alert("Erro ao ler a planilha.");
+            }
+        }
+
+        function agrupar(lista, campo) {
+            const resultado = {};
+            lista.forEach(item => {
+                const chave = item[campo] ? String(item[campo]).trim() : "N/A";
+                resultado[chave] = (resultado[chave] || 0) + 1;
+            });
+            return resultado;
+        }
+
+        function semaforo(valor) {
+            if (valor > 20) return "🔴";
+            if (valor > 10) return "🟡";
+            return "🟢";
+        }
+
+        function destruirGraficos() {
+            if (chartArea) chartArea.destroy();
+            if (chartStatus) chartStatus.destroy();
+            if (chartPrioridade) chartPrioridade.destroy();
+            if (chartResponsavel) chartResponsavel.destroy();
+            if (chartBurndown) chartBurndown.destroy();
+        }
+
+        function montarDashboard(dados) {
+            const pendentes = dados.filter(x => x.State !== "Done");
+
+            const pendentesAtivos = pendentes.filter(x => String(x["Board Column"]).trim().toLowerCase() !== "hold");
+            const emHold = pendentes.filter(x => String(x["Board Column"]).trim().toLowerCase() === "hold");
+
+            const totalAtivo = pendentesAtivos.length;
+            const totalHold = emHold.length;
+            const horas = pendentesAtivos.reduce((s, x) => s + (Number(x.Hour) || 0), 0);
+
+            const homologacao = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("homolog")).length;
+            const desenvolvimento = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("desenvolv")).length;
+            const impeditivos = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("imped")).length;
+
+            document.getElementById("kpiBacklog").innerText = totalAtivo;
+            document.getElementById("kpiHold").innerText = totalHold;
+            document.getElementById("kpiHomologacao").innerText = homologacao;
+            document.getElementById("kpiDev").innerText = desenvolvimento;
+            document.getElementById("kpiImpeditivos").innerText = impeditivos;
+
+            const meses = (horas / CAPACIDADE_MENSAL).toFixed(1);
+            document.getElementById("kpiForecast").innerText = meses + " M";
+
+            document.getElementById("capacidadeTexto").innerHTML =
+                `<b>${horas}h</b> pendentes | Capacidade mensal: <b>${CAPACIDADE_MENSAL}h</b> | Previsão: <b>${meses} meses</b>`;
+
+            const percent = Math.min((horas / CAPACIDADE_MENSAL) * 10, 100);
+            document.getElementById("backlogProgress").style.width = percent + "%";
+
+            const areas = agrupar(pendentesAtivos, "Department");
+            document.getElementById("semComex").innerText = semaforo(areas["Comex"] || areas["COMEX"] || 0);
+            document.getElementById("semFat").innerText = semaforo(areas["Faturamento"] || 0);
+            document.getElementById("semOperacao").innerText = semaforo(areas["Operação"] || areas["Operacao"] || 0);
+            document.getElementById("semReceita").innerText = semaforo(areas["Receita"] || 0);
+            document.getElementById("semTI").innerText = semaforo(areas["TI"] || 0);
+
+            gerarGraficos(pendentesAtivos, horas);
+            gerarTabela(pendentes);
+        }
+
+        function gerarGraficos(dadosAtivos, horasTotais) {
+            destruirGraficos();
+
+            const areas = agrupar(dadosAtivos, "Department");
+            chartArea = new Chart(document.getElementById("chartArea"), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(areas),
+                    datasets: [{
+                        label: 'Itens Ativos',
+                        data: Object.values(areas),
+                        backgroundColor: '#bf0000'
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+
+            const status = agrupar(dadosAtivos, "Board Column");
+            chartStatus = new Chart(document.getElementById("chartStatus"), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(status),
+                    datasets: [{
+                        data: Object.values(status),
+                        backgroundColor: ['#0d6efd', '#ffc107', '#dc3545', '#198754', '#0dcaf0', '#fd7e14']
+                    }]
+                },
+                options: { responsive: true }
+            });
+
+            const prioridade = agrupar(dadosAtivos, "Priority");
+            chartPrioridade = new Chart(document.getElementById("chartPrioridade"), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(prioridade),
+                    datasets: [{
+                        label: 'Prioridade',
+                        data: Object.values(prioridade),
+                        backgroundColor: '#0066cc'
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+
+            const responsavel = agrupar(dadosAtivos, "Assigned To");
+            chartResponsavel = new Chart(document.getElementById("chartResponsavel"), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(responsavel),
+                    datasets: [{
+                        label: 'Itens',
+                        data: Object.values(responsavel),
+                        backgroundColor: '#28a745'
+                    }]
+                },
+                options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+            });
+
+            // Burndown
+            const rotulosMeses = ['Atual'];
+            const dadosBurndown = [horasTotais];
+            let horasRestantes = horasTotais;
+            let m = 1;
+
+            while (horasRestantes > 0 && m <= 12) {
+                rotulosMeses.push('M' + m);
+                horasRestantes = Math.max(0, horasRestantes - CAPACIDADE_MENSAL);
+                dadosBurndown.push(horasRestantes);
+                m++;
+            }
+
+            chartBurndown = new Chart(document.getElementById("chartBurndown"), {
+                type: 'line',
+                data: {
+                    labels: rotulosMeses,
+                    datasets: [{
+                        label: 'Horas Restantes',
+                        data: dadosBurndown,
+                        borderColor: '#dc3545',
+                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                        fill: true,
+                        tension: 0.2
+                    }]
+                },
+                options: { responsive: true }
+            });
+        }
+
+        function gerarTabela(todosDados) {
+            if ($.fn.DataTable.isDataTable('#tblBacklog')) {
+                $('#tblBacklog').DataTable().destroy();
+            }
+
+            const tbody = document.querySelector("#tblBacklog tbody");
+            tbody.innerHTML = "";
+
+            todosDados.forEach(item => {
+                const statusStr = String(item["Board Column"] || '');
+                const isHold = statusStr.trim().toLowerCase() === "hold";
+                const badgeClass = isHold ? "bg-dark" : "bg-secondary";
+
+                tbody.innerHTML += `
+                <tr class="${isHold ? 'table-light text-muted' : ''}">
+                    <td>${item.ID || ''}</td>
+                    <td>${item.Title || ''}</td>
+                    <td>${item.Department || ''}</td>
+                    <td><span class="badge ${badgeClass}">${statusStr}</span></td>
+                    <td>${item.Priority || ''}</td>
+                    <td>${item["Assigned To"] || ''}</td>
+                    <td>${item.Hour || 0}</td>
+                </tr>
+                `;
+            });
+
+            $('#tblBacklog').DataTable({
+                language: {
+                    url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/pt-BR.json'
+                },
+                pageLength: 10,
+                order: [[0, 'desc']]
+            });
+        }
+
+        // Funções de Filtragem por Clique de KPI
+        function filtrarPorKPI(tipo, elemento) {
+            $('.card-kpi').removeClass('active-kpi');
+            $(elemento).addClass('active-kpi');
+
+            const table = $('#tblBacklog').DataTable();
+            const indicador = document.getElementById('indicadorFiltro');
+            const badge = document.getElementById('badgeFiltro');
+
+            indicador.classList.remove('d-none');
+            indicador.classList.add('d-flex');
+
+            if (tipo === 'HOLD') {
+                badge.innerText = "Filtro: Status = Hold";
+                table.column(3).search("^Hold$", true, false).draw();
+            } else if (tipo === 'HOMOLOGACAO') {
+                badge.innerText = "Filtro: Homologação";
+                table.column(3).search("Homolog", false, true).draw();
+            } else if (tipo === 'DEV') {
+                badge.innerText = "Filtro: Em Desenvolvimento";
+                table.column(3).search("Desenvolv", false, true).draw();
+            } else if (tipo === 'IMPEDITIVOS') {
+                badge.innerText = "Filtro: Impeditivos";
+                table.column(3).search("Imped", false, true).draw();
+            } else if (tipo === 'TODOS_ATIVOS') {
+                badge.innerText = "Filtro: Somente Ativos (Sem Hold)";
+                table.column(3).search("^(?!Hold$).*", true, false).draw();
+            }
+
+            // Rolagem suave até a tabela detalhada
+            document.getElementById('secaoTabela').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function limparFiltroKPI() {
+            $('.card-kpi').removeClass('active-kpi');
+            const table = $('#tblBacklog').DataTable();
+
+            table.column(3).search('').draw();
+
+            const indicador = document.getElementById('indicadorFiltro');
+            indicador.classList.remove('d-flex');
+            indicador.classList.add('d-none');
+        }
+
+        document.addEventListener("DOMContentLoaded", carregarExcelAutomatico);
+    </script>
+</body>
+
+</html>
