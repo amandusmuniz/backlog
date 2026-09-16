@@ -80,52 +80,33 @@
             line-height: 1;
             margin-bottom: 5px;
         }
-
-        .upload-card {
-            background: #ffffff;
-            border: 2px dashed #bf0000;
-            border-radius: 12px;
-            padding: 15px;
-        }
     </style>
 </head>
 
 <body>
 
+    <!-- Header Navbar -->
     <nav class="navbar navbar-dark mb-4 shadow-sm">
         <div class="container-fluid">
             <span class="navbar-brand fw-bold">
                 📊 Dashboard Executivo TI
             </span>
-            <div class="d-flex align-items-center gap-3">
-                <span class="navbar-text text-white small" id="ultimaAtualizacao">
-                    Aguardando arquivo...
+            <div class="d-flex align-items-center gap-2">
+                <span class="navbar-text text-white small me-2" id="ultimaAtualizacao">
+                    Aguardando dados...
                 </span>
                 <button class="btn btn-light btn-sm fw-bold" onclick="carregarExcelAutomatico()">
-                    🔄 Atualizar Dados
+                    🔄 Atualizar Agora
+                </button>
+                <!-- Botão discreto para Upload Manual -->
+                <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal" title="Upload Manual de Planilha">
+                    ⚙️ Upload Manual
                 </button>
             </div>
         </div>
     </nav>
 
     <div class="container-fluid pb-5">
-
-        <!-- Upload Manual / Origem do Arquivo -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="upload-card d-flex align-items-center justify-content-between flex-wrap gap-3">
-                    <div>
-                        <h6 class="fw-bold mb-1 text-danger">📂 Fonte de Dados do Backlog</h6>
-                        <small class="text-muted" id="infoFonte">
-                            Lendo automaticamente o arquivo corporativo ou selecione manualmente abaixo:
-                        </small>
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <input type="file" id="fileInput" class="form-control form-control-sm" accept=".xlsx, .xls">
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- KPIs Clicáveis -->
         <div class="row g-3">
@@ -299,33 +280,66 @@
 
     </div>
 
+    <!-- Modal Discreto de Upload Manual -->
+    <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold text-danger" id="uploadModalLabel">📂 Carregar Planilha Manualmente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">
+                        Utilize esta opção caso queira testar uma planilha local sem aguardar a sincronização automática.
+                    </p>
+                    <input type="file" id="fileInput" class="form-control" accept=".xlsx, .xls">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let chartArea, chartStatus, chartPrioridade, chartResponsavel, chartBurndown;
         let dadosCompletos = [];
+        let uploadManualRealizado = false;
         const CAPACIDADE_MENSAL = 780;
+        const TEMPO_AUTO_REFRESH = 30 * 60 * 1000; // 30 minutos em milissegundos
 
-        // Link do SharePoint configurado
         const URL_SHAREPOINT = "https://jbsbrazil-my.sharepoint.com/personal/amandus_muniz_jbsterminais_com_br/Documents/Área de Trabalho/Backlog Desenvolvimento/Dashboard_Backlog_All_Pendent.xlsx?download=1";
         const URL_LOCAL_FALLBACK = "./Dashboard_Backlog_All_Pendent.xlsx";
 
-        // Leitura via File Input
+        // Upload Manual via File Input
         document.getElementById('fileInput').addEventListener('change', function (e) {
             const file = e.target.files[0];
             if (!file) return;
 
+            uploadManualRealizado = true;
             const dataModificacao = new Date(file.lastModified).toLocaleString('pt-BR');
             const reader = new FileReader();
             reader.onload = function (e) {
                 const buffer = e.target.result;
-                processarExcel(buffer, dataModificacao);
+                processarExcel(buffer, dataModificacao + " (Arquivo Local)");
+
+                // Fecha o modal do Bootstrap após a seleção
+                const modalElement = document.getElementById('uploadModal');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) modal.hide();
             };
             reader.readAsArrayBuffer(file);
         });
 
         async function carregarExcelAutomatico() {
+            // Se o usuário subiu uma planilha manual recente, preserva os dados para não sobreescrever
+            if (uploadManualRealizado) {
+                console.log("Upload manual ativo. Ignorando sincronização automática temporariamente.");
+                return;
+            }
+
             document.getElementById("ultimaAtualizacao").innerText = "Carregando dados...";
 
-            // Tenta obter via SharePoint / Local Server
             const urlsParaTestar = [
                 { url: URL_SHAREPOINT, nome: "SharePoint" },
                 { url: URL_LOCAL_FALLBACK + "?v=" + new Date().getTime(), nome: "Servidor Local" }
@@ -353,8 +367,7 @@
             }
 
             if (!carregado) {
-                document.getElementById("ultimaAtualizacao").innerText = "Aguardando carregamento de arquivo";
-                document.getElementById("infoFonte").innerText = "⚠️ O acesso direto ao SharePoint requer autenticação. Faça o upload manual da planilha abaixo para visualizar os dados atualizados.";
+                document.getElementById("ultimaAtualizacao").innerHTML = `⚠️ <span class="text-warning">Aguardando planilha</span>`;
             }
         }
 
@@ -366,12 +379,11 @@
 
                 dadosCompletos = XLSX.utils.sheet_to_json(worksheet, { range: 1, defval: "" });
 
-                document.getElementById("ultimaAtualizacao").innerHTML = `📅 Última alteração do arquivo: <b>${dataModificacao}</b>`;
-                document.getElementById("infoFonte").innerText = "Planilha sincronizada com sucesso.";
+                document.getElementById("ultimaAtualizacao").innerHTML = `🕒 Atualizado: <b>${dataModificacao}</b>`;
                 montarDashboard(dadosCompletos);
             } catch (err) {
                 console.error("Erro ao processar planilha:", err);
-                alert("Erro ao ler o arquivo Excel.");
+                alert("Erro ao ler a planilha Excel.");
             }
         }
 
@@ -602,7 +614,13 @@
             indicador.classList.add('d-none');
         }
 
-        document.addEventListener("DOMContentLoaded", carregarExcelAutomatico);
+        // Execução inicial
+        document.addEventListener("DOMContentLoaded", function () {
+            carregarExcelAutomatico();
+            
+            // Agenda a atualização automática em segundo plano a cada 30 minutos
+            setInterval(carregarExcelAutomatico, TEMPO_AUTO_REFRESH);
+        });
     </script>
 </body>
 
