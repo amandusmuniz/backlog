@@ -97,24 +97,31 @@
             <span class="navbar-brand fw-bold">
                 📊 Dashboard Executivo TI
             </span>
-            <span class="navbar-text text-white" id="ultimaAtualizacao">
-                Aguardando arquivo...
-            </span>
+            <div class="d-flex align-items-center gap-3">
+                <span class="navbar-text text-white small" id="ultimaAtualizacao">
+                    Aguardando arquivo...
+                </span>
+                <button class="btn btn-light btn-sm fw-bold" onclick="carregarExcelAutomatico()">
+                    🔄 Atualizar Dados
+                </button>
+            </div>
         </div>
     </nav>
 
     <div class="container-fluid pb-5">
 
-        <!-- Upload Manual -->
+        <!-- Upload Manual / Origem do Arquivo -->
         <div class="row mb-4">
             <div class="col-12">
                 <div class="upload-card d-flex align-items-center justify-content-between flex-wrap gap-3">
                     <div>
-                        <h6 class="fw-bold mb-1 text-danger">📂 Carregar Planilha Excel</h6>
-                        <small class="text-muted">Selecione o arquivo <code>Dashboard_Backlog_All_Pendent.xlsx</code> do seu computador</small>
+                        <h6 class="fw-bold mb-1 text-danger">📂 Fonte de Dados do Backlog</h6>
+                        <small class="text-muted" id="infoFonte">
+                            Lendo automaticamente o arquivo corporativo ou selecione manualmente abaixo:
+                        </small>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <input type="file" id="fileInput" class="form-control" accept=".xlsx, .xls">
+                        <input type="file" id="fileInput" class="form-control form-control-sm" accept=".xlsx, .xls">
                     </div>
                 </div>
             </div>
@@ -297,31 +304,61 @@
         let dadosCompletos = [];
         const CAPACIDADE_MENSAL = 780;
 
+        // Link do SharePoint configurado
+        const URL_SHAREPOINT = "https://jbsbrazil-my.sharepoint.com/personal/amandus_muniz_jbsterminais_com_br/Documents/Área de Trabalho/Backlog Desenvolvimento/Dashboard_Backlog_All_Pendent.xlsx?download=1";
+        const URL_LOCAL_FALLBACK = "./Dashboard_Backlog_All_Pendent.xlsx";
+
         // Leitura via File Input
         document.getElementById('fileInput').addEventListener('change', function (e) {
             const file = e.target.files[0];
             if (!file) return;
 
+            const dataModificacao = new Date(file.lastModified).toLocaleString('pt-BR');
             const reader = new FileReader();
             reader.onload = function (e) {
                 const buffer = e.target.result;
-                processarExcel(buffer);
+                processarExcel(buffer, dataModificacao);
             };
             reader.readAsArrayBuffer(file);
         });
 
         async function carregarExcelAutomatico() {
-            try {
-                const response = await fetch("./Dashboard_Backlog_All_Pendent.xlsx?v=" + new Date().getTime());
-                if (!response.ok) throw new Error("Fetch desabilitado.");
-                const buffer = await response.arrayBuffer();
-                processarExcel(buffer);
-            } catch (err) {
-                document.getElementById("ultimaAtualizacao").innerText = "Selecione o arquivo acima para carregar os dados.";
+            document.getElementById("ultimaAtualizacao").innerText = "Carregando dados...";
+
+            // Tenta obter via SharePoint / Local Server
+            const urlsParaTestar = [
+                { url: URL_SHAREPOINT, nome: "SharePoint" },
+                { url: URL_LOCAL_FALLBACK + "?v=" + new Date().getTime(), nome: "Servidor Local" }
+            ];
+
+            let carregado = false;
+
+            for (const fonte of urlsParaTestar) {
+                try {
+                    const response = await fetch(fonte.url);
+                    if (!response.ok) continue;
+
+                    const lastModifiedHeader = response.headers.get("last-modified");
+                    const dataModificacao = lastModifiedHeader 
+                        ? new Date(lastModifiedHeader).toLocaleString('pt-BR') 
+                        : new Date().toLocaleString('pt-BR');
+
+                    const buffer = await response.arrayBuffer();
+                    processarExcel(buffer, dataModificacao);
+                    carregado = true;
+                    break;
+                } catch (err) {
+                    console.warn(`Não foi possível carregar de ${fonte.nome}:`, err);
+                }
+            }
+
+            if (!carregado) {
+                document.getElementById("ultimaAtualizacao").innerText = "Aguardando carregamento de arquivo";
+                document.getElementById("infoFonte").innerText = "⚠️ O acesso direto ao SharePoint requer autenticação. Faça o upload manual da planilha abaixo para visualizar os dados atualizados.";
             }
         }
 
-        function processarExcel(buffer) {
+        function processarExcel(buffer, dataModificacao) {
             try {
                 const workbook = XLSX.read(buffer, { type: "array" });
                 let sheetName = workbook.SheetNames.find(s => s.includes("Pendent")) || workbook.SheetNames[0];
@@ -329,11 +366,12 @@
 
                 dadosCompletos = XLSX.utils.sheet_to_json(worksheet, { range: 1, defval: "" });
 
-                document.getElementById("ultimaAtualizacao").innerText = "Atualizado em: " + new Date().toLocaleTimeString();
+                document.getElementById("ultimaAtualizacao").innerHTML = `📅 Última alteração do arquivo: <b>${dataModificacao}</b>`;
+                document.getElementById("infoFonte").innerText = "Planilha sincronizada com sucesso.";
                 montarDashboard(dadosCompletos);
             } catch (err) {
                 console.error("Erro ao processar planilha:", err);
-                alert("Erro ao ler a planilha.");
+                alert("Erro ao ler o arquivo Excel.");
             }
         }
 
@@ -458,7 +496,6 @@
                 options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
             });
 
-            // Burndown
             const rotulosMeses = ['Atual'];
             const dadosBurndown = [horasTotais];
             let horasRestantes = horasTotais;
@@ -523,7 +560,6 @@
             });
         }
 
-        // Funções de Filtragem por Clique de KPI
         function filtrarPorKPI(tipo, elemento) {
             $('.card-kpi').removeClass('active-kpi');
             $(elemento).addClass('active-kpi');
@@ -552,7 +588,6 @@
                 table.column(3).search("^(?!Hold$).*", true, false).draw();
             }
 
-            // Rolagem suave até a tabela detalhada
             document.getElementById('secaoTabela').scrollIntoView({ behavior: 'smooth' });
         }
 
