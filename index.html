@@ -200,11 +200,11 @@
             </div>
         </div>
 
-        <!-- Gráfico Compacto com Scroll: Quantidade de Itens por Semana x Responsável -->
+        <!-- Gráfico Compacto com Scroll: Quantidade de Itens por Semana x Status -->
         <div class="row section">
             <div class="col-12">
                 <div class="chart-card">
-                    <h5 class="fw-bold mb-3">📅 Entregas por Semana x Responsável (Coluna Week)</h5>
+                    <h5 class="fw-bold mb-3">📅 Entregas por Semana x Status (Coluna Week)</h5>
                     <div class="chart-scroll-container">
                         <div id="chartWeekWrapper" class="chart-scroll-wrapper">
                             <canvas id="chartWeek"></canvas>
@@ -546,13 +546,11 @@
         function gerarGraficos(dadosAtivos, horasTotais) {
             destruirGraficos();
 
-            // --- GRÁFICO DE SEMANAS (EXCLUINDO "SEM SEMANA") ---
+            // --- GRÁFICO DE SEMANAS (AGRUPADO POR STATUS - BOARD COLUMN) ---
             const semanasSet = new Set();
             dadosAtivos.forEach(d => {
                 const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
-                if (w) {
-                    semanasSet.add(w);
-                }
+                if (w) semanasSet.add(w);
             });
 
             // Ordena as semanas numericamente
@@ -562,38 +560,40 @@
                 return numA - numB;
             });
 
-            // Ajustar largura mínima dinamicamente dependendo da quantidade de semanas
-            const wrapper = document.getElementById('chartWeekWrapper');
-            const minWidthCalculada = Math.max(semanasChaves.length * 60, 600);
-            wrapper.style.minWidth = minWidthCalculada + 'px';
-
-            const responsaveisSet = new Set();
+            // Coleta todos os status (Board Column) existentes
+            const statusSet = new Set();
             dadosAtivos.forEach(d => {
                 const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
                 if (w) {
-                    const resp = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
-                    responsaveisSet.add(resp);
+                    const status = d["Board Column"] ? String(d["Board Column"]).trim() : "Sem Status";
+                    statusSet.add(status);
                 }
             });
-            const listaResponsaveis = Array.from(responsaveisSet);
+            const listaStatus = Array.from(statusSet).sort();
 
-            const datasetsSemana = listaResponsaveis.map((resp, idx) => {
+            // Ajustar largura mínima dinamicamente dependendo da quantidade de barras
+            const wrapper = document.getElementById('chartWeekWrapper');
+            const minWidthCalculada = Math.max(semanasChaves.length * (listaStatus.length * 25 + 20), 600);
+            wrapper.style.minWidth = minWidthCalculada + 'px';
+
+            // Cria um dataset (uma cor / tipo de barra) para cada Status
+            const datasetsSemana = listaStatus.map((status, idx) => {
                 const dataValues = semanasChaves.map(semana => {
                     return dadosAtivos.filter(d => {
                         const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
-                        const r = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
-                        return w === semana && r === resp;
+                        const st = d["Board Column"] ? String(d["Board Column"]).trim() : "Sem Status";
+                        return w === semana && st === status;
                     }).length;
                 });
 
                 return {
-                    label: resp,
+                    label: status,
                     data: dataValues,
-                    backgroundColor: PALETA_CORES[idx % PALETA_CORES.length],
-                    stack: 'Stack0'
+                    backgroundColor: PALETA_CORES[idx % PALETA_CORES.length]
                 };
             });
 
+            // Mapeia o total geral da semana para exibir no topo
             const totaisPorSemana = semanasChaves.map(semana => {
                 return dadosAtivos.filter(d => {
                     const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
@@ -603,6 +603,7 @@
 
             const maxTotalSemana = Math.max(...totaisPorSemana, 0);
 
+            // Adiciona dataset transparente para os totais
             datasetsSemana.push({
                 label: 'Total',
                 data: totaisPorSemana,
@@ -639,19 +640,50 @@
                             }
                         },
                         tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            filter: function (tooltipItem) { return tooltipItem.dataset.label !== 'Total'; }
+                            mode: 'nearest',
+                            intersect: true,
+                            filter: function (tooltipItem) { return tooltipItem.dataset.label !== 'Total'; },
+                            callbacks: {
+                                // Exibe no rodapé do Tooltip o detalhamento dos Responsáveis do status selecionado
+                                footer: function (tooltipItems) {
+                                    if (!tooltipItems.length) return '';
+                                    const item = tooltipItems[0];
+                                    const semanaSelecionada = semanasChaves[item.dataIndex];
+                                    const statusSelecionado = item.dataset.label;
+
+                                    const itensFiltrados = dadosAtivos.filter(d => {
+                                        const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
+                                        const st = d["Board Column"] ? String(d["Board Column"]).trim() : "Sem Status";
+                                        return w === semanaSelecionada && st === statusSelecionado;
+                                    });
+
+                                    if (itensFiltrados.length === 0) return '';
+
+                                    const contagemResp = {};
+                                    itensFiltrados.forEach(d => {
+                                        const resp = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
+                                        contagemResp[resp] = (contagemResp[resp] || 0) + 1;
+                                    });
+
+                                    let linhasFooter = ['\nResponsáveis:'];
+                                    for (const [resp, qtd] of Object.entries(contagemResp)) {
+                                        linhasFooter.push(`• ${resp}: ${qtd}`);
+                                    }
+                                    return linhasFooter.join('\n');
+                                }
+                            }
                         },
                         datalabels: {
-                            color: '#ffffff',
-                            font: { weight: 'bold', size: 10 },
+                            color: '#000000',
+                            anchor: 'end',
+                            align: 'top',
+                            font: { weight: 'bold', size: 9 },
                             formatter: function (value) { return value > 0 ? value : ''; }
                         }
                     },
                     scales: {
-                        x: { stacked: true },
-                        y: { stacked: true, beginAtZero: true, suggestedMax: maxTotalSemana + 2 }
+                        x: { stacked: false },
+                        y: { stacked: false, beginAtZero: true, suggestedMax: maxTotalSemana + 2 }
                     },
                     onClick: (evt, elements) => {
                         if (elements.length > 0) {
