@@ -20,6 +20,8 @@
     <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js DataLabels Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <!-- SheetJS (XLSX) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
@@ -92,7 +94,6 @@
                 📊 Dashboard Executivo TI
             </span>
             <div class="d-flex align-items-center gap-3">
-                <!-- Status Duplo: Horário do Leitor e Data/Hora do Arquivo -->
                 <div class="text-white text-end lh-sm small">
                     <div id="statusSincronizacao">🕒 Última Busca: <b>--:--:--</b></div>
                     <div id="statusArquivo">📄 Modificação do Arquivo: <b>Aguardando...</b></div>
@@ -100,7 +101,6 @@
                 <button class="btn btn-light btn-sm fw-bold" onclick="carregarExcelAutomatico()">
                     🔄 Atualizar Agora
                 </button>
-                <!-- Botão discreto para Upload Manual -->
                 <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal" title="Upload Manual de Planilha">
                     ⚙️ Upload Manual
                 </button>
@@ -111,58 +111,86 @@
     <div class="container-fluid pb-5">
 
         <!-- KPIs Clicáveis -->
-        <div class="row g-3">
-            <div class="col-md-2">
+        <div class="row g-2 row-cols-2 row-cols-md-4 row-cols-xl-8">
+            <div class="col">
                 <div class="card card-kpi" onclick="filtrarPorKPI('TODOS_ATIVOS', this)">
-                    <div class="card-body text-center">
-                        <h6 class="text-muted">Total Backlog (Ativo)</h6>
+                    <div class="card-body text-center p-2">
+                        <h6 class="text-muted small mb-1">Total Backlog</h6>
                         <div id="kpiBacklog" class="kpi">0</div>
                     </div>
                 </div>
             </div>
 
-            <div class="col-md-2">
+            <div class="col">
                 <div class="card card-kpi" onclick="filtrarPorKPI('HOLD', this)">
-                    <div class="card-body text-center">
-                        <h6 class="text-muted">Em Hold (Isolados)</h6>
+                    <div class="card-body text-center p-2">
+                        <h6 class="text-muted small mb-1">Em Hold</h6>
                         <div id="kpiHold" class="kpi text-secondary">0</div>
                     </div>
                 </div>
             </div>
 
-            <div class="col-md-2">
+            <div class="col">
                 <div class="card card-kpi" onclick="filtrarPorKPI('HOMOLOGACAO', this)">
-                    <div class="card-body text-center">
-                        <h6 class="text-muted">Homologação</h6>
+                    <div class="card-body text-center p-2">
+                        <h6 class="text-muted small mb-1">Homologação</h6>
                         <div id="kpiHomologacao" class="kpi text-warning">0</div>
                     </div>
                 </div>
             </div>
 
-            <div class="col-md-2">
+            <div class="col">
                 <div class="card card-kpi" onclick="filtrarPorKPI('DEV', this)">
-                    <div class="card-body text-center">
-                        <h6 class="text-muted">Desenvolvimento</h6>
+                    <div class="card-body text-center p-2">
+                        <h6 class="text-muted small mb-1">Desenvolvimento</h6>
                         <div id="kpiDev" class="kpi text-primary">0</div>
                     </div>
                 </div>
             </div>
 
-            <div class="col-md-2">
+            <div class="col">
+                <div class="card card-kpi" onclick="filtrarPorKPI('RELEASE', this)">
+                    <div class="card-body text-center p-2">
+                        <h6 class="text-muted small mb-1">Release</h6>
+                        <div id="kpiRelease" class="kpi" style="color: #6f42c1;">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col">
                 <div class="card card-kpi" onclick="filtrarPorKPI('IMPEDITIVOS', this)">
-                    <div class="card-body text-center">
-                        <h6 class="text-muted">Impeditivos</h6>
+                    <div class="card-body text-center p-2">
+                        <h6 class="text-muted small mb-1">Impeditivos</h6>
                         <div id="kpiImpeditivos" class="kpi text-danger">0</div>
                     </div>
                 </div>
             </div>
 
-            <div class="col-md-2">
+            <div class="col">
+                <div class="card card-kpi" onclick="filtrarPorKPI('PROX_SEMANA', this)">
+                    <div class="card-body text-center p-2">
+                        <h6 class="text-muted small mb-1">Previsto Próx. Semana</h6>
+                        <div id="kpiProxSemana" class="kpi text-info">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col">
                 <div class="card card-kpi" onclick="filtrarPorKPI('TODOS_ATIVOS', this)">
-                    <div class="card-body text-center">
-                        <h6 class="text-muted">Forecast (Ativo)</h6>
+                    <div class="card-body text-center p-2">
+                        <h6 class="text-muted small mb-1">Forecast (Meses)</h6>
                         <div id="kpiForecast" class="kpi text-success">0</div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráfico: Quantidade de Itens por Semana x Responsável (com Total no Topo) -->
+        <div class="row section">
+            <div class="col-12">
+                <div class="chart-card">
+                    <h5 class="fw-bold mb-3">📅 Entregas por Semana x Responsável (Coluna Week)</h5>
+                    <canvas id="chartWeek" height="120"></canvas>
                 </div>
             </div>
         </div>
@@ -198,11 +226,11 @@
             </div>
         </div>
 
-        <!-- Gráficos -->
+        <!-- Demais Gráficos -->
         <div class="row section g-4">
             <div class="col-md-6">
                 <div class="chart-card">
-                    <h5 class="fw-bold mb-3">Backlog por Área</h5>
+                    <h5 class="fw-bold mb-3">Backlog por Área x Prioridade</h5>
                     <canvas id="chartArea" height="200"></canvas>
                 </div>
             </div>
@@ -216,7 +244,7 @@
 
             <div class="col-md-6">
                 <div class="chart-card">
-                    <h5 class="fw-bold mb-3">Prioridade</h5>
+                    <h5 class="fw-bold mb-3">Prioridade Geral</h5>
                     <canvas id="chartPrioridade" height="200"></canvas>
                 </div>
             </div>
@@ -249,7 +277,7 @@
             </div>
         </div>
 
-        <!-- Tabela Detalhada com indicador de Filtro Ativo -->
+        <!-- Tabela Detalhada -->
         <div class="row section" id="secaoTabela">
             <div class="col-12">
                 <div class="chart-card">
@@ -270,6 +298,7 @@
                                     <th>Status</th>
                                     <th>Prioridade</th>
                                     <th>Responsável</th>
+                                    <th>Semana (Week)</th>
                                     <th>Horas</th>
                                 </tr>
                             </thead>
@@ -304,16 +333,35 @@
     </div>
 
     <script>
-        let chartArea, chartStatus, chartPrioridade, chartResponsavel, chartBurndown;
+        Chart.register(ChartDataLabels);
+
+        let chartWeek, chartArea, chartStatus, chartPrioridade, chartResponsavel, chartBurndown;
         let dadosCompletos = [];
         let uploadManualRealizado = false;
+        let proximaSemanaTexto = "";
         const CAPACIDADE_MENSAL = 780;
-        const TEMPO_AUTO_REFRESH = 30 * 60 * 1000; // 30 minutos
+        const TEMPO_AUTO_REFRESH = 30 * 60 * 1000;
+
+        const PALETA_CORES = [
+            '#0d6efd', '#6f42c1', '#198754', '#fd7e14', '#0dcaf0',
+            '#e83e8c', '#20c997', '#ffc107', '#6610f2', '#d63384'
+        ];
+
+        // Mapeamento de Cores para Prioridade no Gráfico de Área
+        const CORES_PRIORIDADE = {
+            '1': '#dc3545',
+            '2': '#fd7e14',
+            '3': '#ffc107',
+            '4': '#0d6efd',
+            'Alta': '#dc3545',
+            'Média': '#fd7e14',
+            'Baixa': '#20c997',
+            'Sem Informação': '#6c757d'
+        };
 
         const URL_SHAREPOINT = "https://jbsbrazil-my.sharepoint.com/personal/amandus_muniz_jbsterminais_com_br/Documents/Área de Trabalho/Backlog Desenvolvimento/Dashboard_Backlog_All_Pendent.xlsx?download=1";
         const URL_LOCAL_FALLBACK = "./Dashboard_Backlog_All_Pendent.xlsx";
 
-        // Upload Manual via File Input
         document.getElementById('fileInput').addEventListener('change', function (e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -335,10 +383,7 @@
         });
 
         async function carregarExcelAutomatico() {
-            if (uploadManualRealizado) {
-                console.log("Upload manual ativo. Ignorando sincronização automática temporariamente.");
-                return;
-            }
+            if (uploadManualRealizado) return;
 
             const horaBusca = new Date().toLocaleTimeString('pt-BR');
             document.getElementById("statusSincronizacao").innerHTML = `🕒 Última Busca: <b>${horaBusca}</b> (Buscando...)`;
@@ -375,6 +420,17 @@
             }
         }
 
+        function obterProximaSemanaRotulo() {
+            const hoje = new Date();
+            const dataProx = new Date(hoje.setDate(hoje.getDate() + 7));
+            const d = new Date(Date.UTC(dataProx.getFullYear(), dataProx.getMonth(), dataProx.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            return weekNo;
+        }
+
         function processarExcel(buffer, horaAtualizacao, dataModificacaoArquivo) {
             try {
                 const workbook = XLSX.read(buffer, { type: "array" });
@@ -383,7 +439,6 @@
 
                 dadosCompletos = XLSX.utils.sheet_to_json(worksheet, { range: 1, defval: "" });
 
-                // Atualiza os painéis com o horário da verificação e a data de modificação da planilha
                 document.getElementById("statusSincronizacao").innerHTML = `🕒 Última Busca: <b>${horaAtualizacao}</b>`;
                 document.getElementById("statusArquivo").innerHTML = `📄 Alteração do Arquivo: <b>${dataModificacaoArquivo}</b>`;
 
@@ -397,7 +452,7 @@
         function agrupar(lista, campo) {
             const resultado = {};
             lista.forEach(item => {
-                const chave = item[campo] ? String(item[campo]).trim() : "N/A";
+                let chave = item[campo] !== undefined && item[campo] !== "" ? String(item[campo]).trim() : "Sem Informação";
                 resultado[chave] = (resultado[chave] || 0) + 1;
             });
             return resultado;
@@ -410,6 +465,7 @@
         }
 
         function destruirGraficos() {
+            if (chartWeek) chartWeek.destroy();
             if (chartArea) chartArea.destroy();
             if (chartStatus) chartStatus.destroy();
             if (chartPrioridade) chartPrioridade.destroy();
@@ -429,13 +485,25 @@
 
             const homologacao = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("homolog")).length;
             const desenvolvimento = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("desenvolv")).length;
+            const release = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("release")).length;
             const impeditivos = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("imped")).length;
+
+            const numProxSemana = obterProximaSemanaRotulo();
+            proximaSemanaTexto = "W" + numProxSemana;
+
+            const proxSemana = pendentesAtivos.filter(x => {
+                const valWeek = String(x.Week || x.Semana || "").trim();
+                if (!valWeek) return false;
+                return valWeek.includes(String(numProxSemana)) || valWeek.toLowerCase().includes(proximaSemanaTexto.toLowerCase());
+            }).length;
 
             document.getElementById("kpiBacklog").innerText = totalAtivo;
             document.getElementById("kpiHold").innerText = totalHold;
             document.getElementById("kpiHomologacao").innerText = homologacao;
             document.getElementById("kpiDev").innerText = desenvolvimento;
+            document.getElementById("kpiRelease").innerText = release;
             document.getElementById("kpiImpeditivos").innerText = impeditivos;
+            document.getElementById("kpiProxSemana").innerText = proxSemana;
 
             const meses = (horas / CAPACIDADE_MENSAL).toFixed(1);
             document.getElementById("kpiForecast").innerText = meses + " M";
@@ -460,19 +528,202 @@
         function gerarGraficos(dadosAtivos, horasTotais) {
             destruirGraficos();
 
-            const areas = agrupar(dadosAtivos, "Department");
+            // --- GRÁFICO EMPILHADO SEMANA X RESPONSÁVEL COM TOTAL NO TOPO ---
+            const semanasSet = new Set();
+            dadosAtivos.forEach(d => {
+                const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "Sem Semana";
+                semanasSet.add(w);
+            });
+            const semanasChaves = Array.from(semanasSet).sort((a, b) => {
+                const numA = parseInt(a.replace(/\D/g, '')) || 0;
+                const numB = parseInt(b.replace(/\D/g, '')) || 0;
+                return numA - numB;
+            });
+
+            const responsaveisSet = new Set();
+            dadosAtivos.forEach(d => {
+                const resp = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
+                responsaveisSet.add(resp);
+            });
+            const listaResponsaveis = Array.from(responsaveisSet);
+
+            const datasetsSemana = listaResponsaveis.map((resp, idx) => {
+                const dataValues = semanasChaves.map(semana => {
+                    return dadosAtivos.filter(d => {
+                        const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "Sem Semana";
+                        const r = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
+                        return w === semana && r === resp;
+                    }).length;
+                });
+
+                return {
+                    label: resp,
+                    data: dataValues,
+                    backgroundColor: PALETA_CORES[idx % PALETA_CORES.length],
+                    stack: 'Stack0'
+                };
+            });
+
+            const totaisPorSemana = semanasChaves.map(semana => {
+                return dadosAtivos.filter(d => {
+                    const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "Sem Semana";
+                    return w === semana;
+                }).length;
+            });
+
+            const maxTotalSemana = Math.max(...totaisPorSemana, 0);
+
+            datasetsSemana.push({
+                label: 'Total',
+                data: totaisPorSemana,
+                backgroundColor: 'transparent',
+                type: 'bar',
+                datalabels: {
+                    align: 'top',
+                    anchor: 'end',
+                    color: '#212529',
+                    font: { weight: 'bold', size: 12 },
+                    formatter: function (value) {
+                        return value > 0 ? 'Total: ' + value : '';
+                    }
+                }
+            });
+
+            chartWeek = new Chart(document.getElementById("chartWeek"), {
+                type: 'bar',
+                data: {
+                    labels: semanasChaves.map(s => s.startsWith("W") || s === "Sem Semana" ? s : "Semana " + s),
+                    datasets: datasetsSemana
+                },
+                options: {
+                    responsive: true,
+                    layout: { padding: { top: 25 } },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                filter: function (legendItem) { return legendItem.text !== 'Total'; }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            filter: function (tooltipItem) { return tooltipItem.dataset.label !== 'Total'; }
+                        },
+                        datalabels: {
+                            color: '#ffffff',
+                            font: { weight: 'bold', size: 11 },
+                            formatter: function (value) { return value > 0 ? value : ''; }
+                        }
+                    },
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, beginAtZero: true, suggestedMax: maxTotalSemana + 2 }
+                    },
+                    onClick: (evt, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const semanaSelecionada = semanasChaves[index];
+                            filtrarPorSemanaEspecifica(semanaSelecionada);
+                        }
+                    }
+                }
+            });
+
+            // --- GRÁFICO ÁREA X PRIORIDADE (EMPILHADO) ---
+            const areasSet = new Set();
+            dadosAtivos.forEach(d => {
+                const area = d.Department !== undefined && d.Department !== "" ? String(d.Department).trim() : "Sem Área";
+                areasSet.add(area);
+            });
+            const listaAreas = Array.from(areasSet).sort();
+
+            const prioridadesSet = new Set();
+            dadosAtivos.forEach(d => {
+                const prio = d.Priority !== undefined && d.Priority !== "" ? String(d.Priority).trim() : "Sem Informação";
+                prioridadesSet.add(prio);
+            });
+            const listaPrioridades = Array.from(prioridadesSet).sort();
+
+            const datasetsArea = listaPrioridades.map((prio, idx) => {
+                const dataValues = listaAreas.map(area => {
+                    return dadosAtivos.filter(d => {
+                        const a = d.Department !== undefined && d.Department !== "" ? String(d.Department).trim() : "Sem Área";
+                        const p = d.Priority !== undefined && d.Priority !== "" ? String(d.Priority).trim() : "Sem Informação";
+                        return a === area && p === prio;
+                    }).length;
+                });
+
+                const cor = CORES_PRIORIDADE[prio] || PALETA_CORES[idx % PALETA_CORES.length];
+
+                return {
+                    label: "Prioridade " + prio,
+                    data: dataValues,
+                    backgroundColor: cor,
+                    stack: 'StackArea'
+                };
+            });
+
+            const totaisPorArea = listaAreas.map(area => {
+                return dadosAtivos.filter(d => {
+                    const a = d.Department !== undefined && d.Department !== "" ? String(d.Department).trim() : "Sem Área";
+                    return a === area;
+                }).length;
+            });
+
+            const maxTotalArea = Math.max(...totaisPorArea, 0);
+
+            datasetsArea.push({
+                label: 'Total',
+                data: totaisPorArea,
+                backgroundColor: 'transparent',
+                type: 'bar',
+                datalabels: {
+                    align: 'top',
+                    anchor: 'end',
+                    color: '#212529',
+                    font: { weight: 'bold', size: 11 },
+                    formatter: function (value) {
+                        return value > 0 ? 'Total: ' + value : '';
+                    }
+                }
+            });
+
             chartArea = new Chart(document.getElementById("chartArea"), {
                 type: 'bar',
                 data: {
-                    labels: Object.keys(areas),
-                    datasets: [{
-                        label: 'Itens Ativos',
-                        data: Object.values(areas),
-                        backgroundColor: '#bf0000'
-                    }]
+                    labels: listaAreas,
+                    datasets: datasetsArea
                 },
-                options: { responsive: true, plugins: { legend: { display: false } } }
+                options: {
+                    responsive: true,
+                    layout: { padding: { top: 25 } },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                filter: function (legendItem) { return legendItem.text !== 'Total'; }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            filter: function (tooltipItem) { return tooltipItem.dataset.label !== 'Total'; }
+                        },
+                        datalabels: {
+                            color: '#ffffff',
+                            font: { weight: 'bold', size: 11 },
+                            formatter: function (value) { return value > 0 ? value : ''; }
+                        }
+                    },
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, beginAtZero: true, suggestedMax: maxTotalArea + 2 }
+                    }
+                }
             });
+
+            const desativarDataLabels = { datalabels: { display: false } };
 
             const status = agrupar(dadosAtivos, "Board Column");
             chartStatus = new Chart(document.getElementById("chartStatus"), {
@@ -481,10 +732,10 @@
                     labels: Object.keys(status),
                     datasets: [{
                         data: Object.values(status),
-                        backgroundColor: ['#0d6efd', '#ffc107', '#dc3545', '#198754', '#0dcaf0', '#fd7e14']
+                        backgroundColor: ['#0d6efd', '#ffc107', '#6f42c1', '#dc3545', '#198754', '#0dcaf0', '#fd7e14']
                     }]
                 },
-                options: { responsive: true }
+                options: { responsive: true, plugins: { ...desativarDataLabels } }
             });
 
             const prioridade = agrupar(dadosAtivos, "Priority");
@@ -498,7 +749,7 @@
                         backgroundColor: '#0066cc'
                     }]
                 },
-                options: { responsive: true, plugins: { legend: { display: false } } }
+                options: { responsive: true, plugins: { legend: { display: false }, ...desativarDataLabels } }
             });
 
             const responsavel = agrupar(dadosAtivos, "Assigned To");
@@ -512,7 +763,7 @@
                         backgroundColor: '#28a745'
                     }]
                 },
-                options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+                options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false }, ...desativarDataLabels } }
             });
 
             const rotulosMeses = ['Atual'];
@@ -540,7 +791,7 @@
                         tension: 0.2
                     }]
                 },
-                options: { responsive: true }
+                options: { responsive: true, plugins: { ...desativarDataLabels } }
             });
         }
 
@@ -556,6 +807,7 @@
                 const statusStr = String(item["Board Column"] || '');
                 const isHold = statusStr.trim().toLowerCase() === "hold";
                 const badgeClass = isHold ? "bg-dark" : "bg-secondary";
+                const semanaVal = item.Week || item.Semana || '-';
 
                 tbody.innerHTML += `
                 <tr class="${isHold ? 'table-light text-muted' : ''}">
@@ -565,6 +817,7 @@
                     <td><span class="badge ${badgeClass}">${statusStr}</span></td>
                     <td>${item.Priority || ''}</td>
                     <td>${item["Assigned To"] || ''}</td>
+                    <td>${semanaVal}</td>
                     <td>${item.Hour || 0}</td>
                 </tr>
                 `;
@@ -577,6 +830,21 @@
                 pageLength: 10,
                 order: [[0, 'desc']]
             });
+        }
+
+        function filtrarPorSemanaEspecifica(semana) {
+            $('.card-kpi').removeClass('active-kpi');
+            const table = $('#tblBacklog').DataTable();
+            const indicador = document.getElementById('indicadorFiltro');
+            const badge = document.getElementById('badgeFiltro');
+
+            indicador.classList.remove('d-none');
+            indicador.classList.add('d-flex');
+
+            badge.innerText = `Filtro: Semana ${semana}`;
+            table.column(6).search("^" + semana + "$", true, false).draw();
+
+            document.getElementById('secaoTabela').scrollIntoView({ behavior: 'smooth' });
         }
 
         function filtrarPorKPI(tipo, elemento) {
@@ -599,9 +867,16 @@
             } else if (tipo === 'DEV') {
                 badge.innerText = "Filtro: Em Desenvolvimento";
                 table.column(3).search("Desenvolv", false, true).draw();
+            } else if (tipo === 'RELEASE') {
+                badge.innerText = "Filtro: Release";
+                table.column(3).search("Release", false, true).draw();
             } else if (tipo === 'IMPEDITIVOS') {
                 badge.innerText = "Filtro: Impeditivos";
                 table.column(3).search("Imped", false, true).draw();
+            } else if (tipo === 'PROX_SEMANA') {
+                const numSemana = obterProximaSemanaRotulo();
+                badge.innerText = `Filtro: Previsto Próxima Semana (${proximaSemanaTexto} / Sem. ${numSemana})`;
+                table.column(6).search(String(numSemana), false, true).draw();
             } else if (tipo === 'TODOS_ATIVOS') {
                 badge.innerText = "Filtro: Somente Ativos (Sem Hold)";
                 table.column(3).search("^(?!Hold$).*", true, false).draw();
@@ -614,18 +889,15 @@
             $('.card-kpi').removeClass('active-kpi');
             const table = $('#tblBacklog').DataTable();
 
-            table.column(3).search('').draw();
+            table.columns().search('').draw();
 
             const indicador = document.getElementById('indicadorFiltro');
             indicador.classList.remove('d-flex');
             indicador.classList.add('d-none');
         }
 
-        // Execução inicial
         document.addEventListener("DOMContentLoaded", function () {
             carregarExcelAutomatico();
-            
-            // Agenda a atualização automática em segundo plano a cada 30 minutos
             setInterval(carregarExcelAutomatico, TEMPO_AUTO_REFRESH);
         });
     </script>
