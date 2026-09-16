@@ -91,10 +91,12 @@
             <span class="navbar-brand fw-bold">
                 📊 Dashboard Executivo TI
             </span>
-            <div class="d-flex align-items-center gap-2">
-                <span class="navbar-text text-white small me-2" id="ultimaAtualizacao">
-                    Aguardando dados...
-                </span>
+            <div class="d-flex align-items-center gap-3">
+                <!-- Status Duplo: Horário do Leitor e Data/Hora do Arquivo -->
+                <div class="text-white text-end lh-sm small">
+                    <div id="statusSincronizacao">🕒 Última Busca: <b>--:--:--</b></div>
+                    <div id="statusArquivo">📄 Modificação do Arquivo: <b>Aguardando...</b></div>
+                </div>
                 <button class="btn btn-light btn-sm fw-bold" onclick="carregarExcelAutomatico()">
                     🔄 Atualizar Agora
                 </button>
@@ -306,7 +308,7 @@
         let dadosCompletos = [];
         let uploadManualRealizado = false;
         const CAPACIDADE_MENSAL = 780;
-        const TEMPO_AUTO_REFRESH = 30 * 60 * 1000; // 30 minutos em milissegundos
+        const TEMPO_AUTO_REFRESH = 30 * 60 * 1000; // 30 minutos
 
         const URL_SHAREPOINT = "https://jbsbrazil-my.sharepoint.com/personal/amandus_muniz_jbsterminais_com_br/Documents/Área de Trabalho/Backlog Desenvolvimento/Dashboard_Backlog_All_Pendent.xlsx?download=1";
         const URL_LOCAL_FALLBACK = "./Dashboard_Backlog_All_Pendent.xlsx";
@@ -317,13 +319,14 @@
             if (!file) return;
 
             uploadManualRealizado = true;
-            const dataModificacao = new Date(file.lastModified).toLocaleString('pt-BR');
+            const horaAtualizacao = new Date().toLocaleTimeString('pt-BR');
+            const dataModificacaoArquivo = new Date(file.lastModified).toLocaleString('pt-BR') + " (Arquivo Local)";
+
             const reader = new FileReader();
             reader.onload = function (e) {
                 const buffer = e.target.result;
-                processarExcel(buffer, dataModificacao + " (Arquivo Local)");
+                processarExcel(buffer, horaAtualizacao, dataModificacaoArquivo);
 
-                // Fecha o modal do Bootstrap após a seleção
                 const modalElement = document.getElementById('uploadModal');
                 const modal = bootstrap.Modal.getInstance(modalElement);
                 if (modal) modal.hide();
@@ -332,13 +335,13 @@
         });
 
         async function carregarExcelAutomatico() {
-            // Se o usuário subiu uma planilha manual recente, preserva os dados para não sobreescrever
             if (uploadManualRealizado) {
                 console.log("Upload manual ativo. Ignorando sincronização automática temporariamente.");
                 return;
             }
 
-            document.getElementById("ultimaAtualizacao").innerText = "Carregando dados...";
+            const horaBusca = new Date().toLocaleTimeString('pt-BR');
+            document.getElementById("statusSincronizacao").innerHTML = `🕒 Última Busca: <b>${horaBusca}</b> (Buscando...)`;
 
             const urlsParaTestar = [
                 { url: URL_SHAREPOINT, nome: "SharePoint" },
@@ -353,12 +356,12 @@
                     if (!response.ok) continue;
 
                     const lastModifiedHeader = response.headers.get("last-modified");
-                    const dataModificacao = lastModifiedHeader 
+                    const dataModificacaoArquivo = lastModifiedHeader 
                         ? new Date(lastModifiedHeader).toLocaleString('pt-BR') 
-                        : new Date().toLocaleString('pt-BR');
+                        : "Indisponível";
 
                     const buffer = await response.arrayBuffer();
-                    processarExcel(buffer, dataModificacao);
+                    processarExcel(buffer, horaBusca, dataModificacaoArquivo);
                     carregado = true;
                     break;
                 } catch (err) {
@@ -367,11 +370,12 @@
             }
 
             if (!carregado) {
-                document.getElementById("ultimaAtualizacao").innerHTML = `⚠️ <span class="text-warning">Aguardando planilha</span>`;
+                document.getElementById("statusSincronizacao").innerHTML = `🕒 Última Busca: <b>${horaBusca}</b>`;
+                document.getElementById("statusArquivo").innerHTML = `📄 Modificação do Arquivo: <b class="text-warning">Aguardando planilha...</b>`;
             }
         }
 
-        function processarExcel(buffer, dataModificacao) {
+        function processarExcel(buffer, horaAtualizacao, dataModificacaoArquivo) {
             try {
                 const workbook = XLSX.read(buffer, { type: "array" });
                 let sheetName = workbook.SheetNames.find(s => s.includes("Pendent")) || workbook.SheetNames[0];
@@ -379,7 +383,10 @@
 
                 dadosCompletos = XLSX.utils.sheet_to_json(worksheet, { range: 1, defval: "" });
 
-                document.getElementById("ultimaAtualizacao").innerHTML = `🕒 Atualizado: <b>${dataModificacao}</b>`;
+                // Atualiza os painéis com o horário da verificação e a data de modificação da planilha
+                document.getElementById("statusSincronizacao").innerHTML = `🕒 Última Busca: <b>${horaAtualizacao}</b>`;
+                document.getElementById("statusArquivo").innerHTML = `📄 Alteração do Arquivo: <b>${dataModificacaoArquivo}</b>`;
+
                 montarDashboard(dadosCompletos);
             } catch (err) {
                 console.error("Erro ao processar planilha:", err);
