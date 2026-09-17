@@ -365,7 +365,6 @@
             'Sem Informação': '#6c757d'
         };
 
-        const URL_VERCEL_API = "/api/get-excel";
         const URL_SHAREPOINT = "https://jbsbrazil-my.sharepoint.com/personal/amandus_muniz_jbsterminais_com_br/Documents/Área de Trabalho/Backlog Desenvolvimento/Dashboard_Backlog_All_Pendent.xlsx?download=1";
         const URL_LOCAL_FALLBACK = "./Dashboard_Backlog_All_Pendent.xlsx";
 
@@ -374,7 +373,6 @@
             document.getElementById("statusSincronizacao").innerHTML = `🕒 Última Busca: <b>${horaBusca}</b> (Buscando...)`;
 
             const urlsParaTestar = [
-                { url: URL_VERCEL_API + "?t=" + new Date().getTime(), nome: "Vercel Serverless API" },
                 { url: URL_SHAREPOINT, nome: "SharePoint Direct" },
                 { url: URL_LOCAL_FALLBACK + "?v=" + new Date().getTime(), nome: "Servidor Local" }
             ];
@@ -389,7 +387,7 @@
                     const lastModifiedHeader = response.headers.get("last-modified");
                     const dataModificacaoArquivo = lastModifiedHeader 
                         ? new Date(lastModifiedHeader).toLocaleString('pt-BR') 
-                        : "Servidor Vercel";
+                        : "Arquivo Carregado";
 
                     const buffer = await response.arrayBuffer();
                     processarExcel(buffer, horaBusca, dataModificacaoArquivo);
