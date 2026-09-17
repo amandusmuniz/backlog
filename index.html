@@ -73,7 +73,6 @@
             height: 100%;
         }
 
-        /* Container compacto com Scroll Horizontal para o gráfico de Semanas */
         .chart-scroll-container {
             position: relative;
             width: 100%;
@@ -200,7 +199,7 @@
             </div>
         </div>
 
-        <!-- Gráfico Compacto com Scroll: Quantidade de Itens por Semana x Status -->
+        <!-- Gráfico Compacto com Scroll -->
         <div class="row section">
             <div class="col-12">
                 <div class="chart-card">
@@ -340,9 +339,10 @@
                 </div>
                 <div class="modal-body">
                     <p class="text-muted small mb-3">
-                        Utilize esta opção caso queira testar uma planilha local sem aguardar a sincronização automática.
+                        Envie uma nova versão do arquivo Excel para atualizar os dados no servidor para todos os usuários.
                     </p>
                     <input type="file" id="fileInput" class="form-control" accept=".xlsx, .xls">
+                    <div id="uploadStatusMsg" class="mt-2 text-primary small"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
@@ -356,7 +356,6 @@
 
         let chartWeek, chartArea, chartStatus, chartPrioridade, chartResponsavel, chartBurndown;
         let dadosCompletos = [];
-        let uploadManualRealizado = false;
         let proximaSemanaTexto = "";
         const CAPACIDADE_MENSAL = 780;
         const TEMPO_AUTO_REFRESH = 30 * 60 * 1000;
@@ -377,37 +376,64 @@
             'Sem Informação': '#6c757d'
         };
 
+        const URL_VERCEL_API = "/api/get-excel";
         const URL_SHAREPOINT = "https://jbsbrazil-my.sharepoint.com/personal/amandus_muniz_jbsterminais_com_br/Documents/Área de Trabalho/Backlog Desenvolvimento/Dashboard_Backlog_All_Pendent.xlsx?download=1";
         const URL_LOCAL_FALLBACK = "./Dashboard_Backlog_All_Pendent.xlsx";
 
-        document.getElementById('fileInput').addEventListener('change', function (e) {
+        // Listener do Upload Manual
+        document.getElementById('fileInput').addEventListener('change', async function (e) {
             const file = e.target.files[0];
             if (!file) return;
 
-            uploadManualRealizado = true;
-            const horaAtualizacao = new Date().toLocaleTimeString('pt-BR');
-            const dataModificacaoArquivo = new Date(file.lastModified).toLocaleString('pt-BR') + " (Arquivo Local)";
+            const statusMsg = document.getElementById('uploadStatusMsg');
+            statusMsg.innerHTML = "⏳ Enviando planilha para o servidor Vercel...";
 
+            const horaAtualizacao = new Date().toLocaleTimeString('pt-BR');
+            const dataModificacaoArquivo = new Date(file.lastModified).toLocaleString('pt-BR') + " (Upload Manual)";
+
+            // 1. Processa localmente primeiro para atualização instantânea da tela
             const reader = new FileReader();
-            reader.onload = function (e) {
+            reader.onload = async function (e) {
                 const buffer = e.target.result;
                 processarExcel(buffer, horaAtualizacao, dataModificacaoArquivo);
 
-                const modalElement = document.getElementById('uploadModal');
-                const modal = bootstrap.Modal.getInstance(modalElement);
-                if (modal) modal.hide();
+                // 2. Envia para a API da Vercel via POST para sincronizar com todos os usuários
+                try {
+                    const response = await fetch(URL_VERCEL_API, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/octet-stream'
+                        },
+                        body: buffer
+                    });
+
+                    if (response.ok) {
+                        statusMsg.innerHTML = "✅ Planilha atualizada com sucesso no servidor!";
+                    } else {
+                        statusMsg.innerHTML = "⚠️ Atualizado apenas localmente (falha ao salvar no servidor).";
+                    }
+                } catch (err) {
+                    console.warn("Erro ao enviar para a Serverless Function:", err);
+                    statusMsg.innerHTML = "⚠️ Atualizado localmente. Servidor offline/sem permissão.";
+                }
+
+                setTimeout(() => {
+                    const modalElement = document.getElementById('uploadModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) modal.hide();
+                    statusMsg.innerHTML = "";
+                }, 1200);
             };
             reader.readAsArrayBuffer(file);
         });
 
         async function carregarExcelAutomatico() {
-            if (uploadManualRealizado) return;
-
             const horaBusca = new Date().toLocaleTimeString('pt-BR');
             document.getElementById("statusSincronizacao").innerHTML = `🕒 Última Busca: <b>${horaBusca}</b> (Buscando...)`;
 
             const urlsParaTestar = [
-                { url: URL_SHAREPOINT, nome: "SharePoint" },
+                { url: URL_VERCEL_API + "?t=" + new Date().getTime(), nome: "Vercel Serverless API" },
+                { url: URL_SHAREPOINT, nome: "SharePoint Direct" },
                 { url: URL_LOCAL_FALLBACK + "?v=" + new Date().getTime(), nome: "Servidor Local" }
             ];
 
@@ -421,7 +447,7 @@
                     const lastModifiedHeader = response.headers.get("last-modified");
                     const dataModificacaoArquivo = lastModifiedHeader 
                         ? new Date(lastModifiedHeader).toLocaleString('pt-BR') 
-                        : "Indisponível";
+                        : "Servidor Vercel";
 
                     const buffer = await response.arrayBuffer();
                     processarExcel(buffer, horaBusca, dataModificacaoArquivo);
@@ -546,21 +572,19 @@
         function gerarGraficos(dadosAtivos, horasTotais) {
             destruirGraficos();
 
-            // --- GRÁFICO DE SEMANAS (AGRUPADO POR STATUS - BOARD COLUMN) ---
+            // --- GRÁFICO DE SEMANAS ---
             const semanasSet = new Set();
             dadosAtivos.forEach(d => {
                 const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
                 if (w) semanasSet.add(w);
             });
 
-            // Ordena as semanas numericamente
             const semanasChaves = Array.from(semanasSet).sort((a, b) => {
                 const numA = parseInt(a.replace(/\D/g, '')) || 0;
                 const numB = parseInt(b.replace(/\D/g, '')) || 0;
                 return numA - numB;
             });
 
-            // Coleta todos os status (Board Column) existentes
             const statusSet = new Set();
             dadosAtivos.forEach(d => {
                 const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
@@ -571,12 +595,10 @@
             });
             const listaStatus = Array.from(statusSet).sort();
 
-            // Ajustar largura mínima dinamicamente dependendo da quantidade de barras
             const wrapper = document.getElementById('chartWeekWrapper');
             const minWidthCalculada = Math.max(semanasChaves.length * (listaStatus.length * 25 + 20), 600);
             wrapper.style.minWidth = minWidthCalculada + 'px';
 
-            // Cria um dataset (uma cor / tipo de barra) para cada Status
             const datasetsSemana = listaStatus.map((status, idx) => {
                 const dataValues = semanasChaves.map(semana => {
                     return dadosAtivos.filter(d => {
@@ -593,7 +615,6 @@
                 };
             });
 
-            // Mapeia o total geral da semana para exibir no topo
             const totaisPorSemana = semanasChaves.map(semana => {
                 return dadosAtivos.filter(d => {
                     const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
@@ -603,7 +624,6 @@
 
             const maxTotalSemana = Math.max(...totaisPorSemana, 0);
 
-            // Adiciona dataset transparente para os totais
             datasetsSemana.push({
                 label: 'Total',
                 data: totaisPorSemana,
@@ -644,7 +664,6 @@
                             intersect: true,
                             filter: function (tooltipItem) { return tooltipItem.dataset.label !== 'Total'; },
                             callbacks: {
-                                // Exibe no rodapé do Tooltip o detalhamento dos Responsáveis do status selecionado
                                 footer: function (tooltipItems) {
                                     if (!tooltipItems.length) return '';
                                     const item = tooltipItems[0];
