@@ -115,9 +115,6 @@
                 <button class="btn btn-light btn-sm fw-bold" onclick="carregarExcelAutomatico()">
                     🔄 Atualizar Agora
                 </button>
-                <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal" title="Upload Manual de Planilha">
-                    ⚙️ Upload Manual
-                </button>
             </div>
         </div>
     </nav>
@@ -329,28 +326,6 @@
 
     </div>
 
-    <!-- Modal Discreto de Upload Manual -->
-    <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold text-danger" id="uploadModalLabel">📂 Carregar Planilha Manualmente</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="text-muted small mb-3">
-                        Envie uma nova versão do arquivo Excel para atualizar os dados no servidor para todos os usuários.
-                    </p>
-                    <input type="file" id="fileInput" class="form-control" accept=".xlsx, .xls">
-                    <div id="uploadStatusMsg" class="mt-2 text-primary small"></div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script>
         Chart.register(ChartDataLabels);
 
@@ -379,53 +354,6 @@
         const URL_VERCEL_API = "/api/get-excel";
         const URL_SHAREPOINT = "https://jbsbrazil-my.sharepoint.com/personal/amandus_muniz_jbsterminais_com_br/Documents/Área de Trabalho/Backlog Desenvolvimento/Dashboard_Backlog_All_Pendent.xlsx?download=1";
         const URL_LOCAL_FALLBACK = "./Dashboard_Backlog_All_Pendent.xlsx";
-
-        // Listener do Upload Manual
-        document.getElementById('fileInput').addEventListener('change', async function (e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const statusMsg = document.getElementById('uploadStatusMsg');
-            statusMsg.innerHTML = "⏳ Enviando planilha para o servidor Vercel...";
-
-            const horaAtualizacao = new Date().toLocaleTimeString('pt-BR');
-            const dataModificacaoArquivo = new Date(file.lastModified).toLocaleString('pt-BR') + " (Upload Manual)";
-
-            // 1. Processa localmente primeiro para atualização instantânea da tela
-            const reader = new FileReader();
-            reader.onload = async function (e) {
-                const buffer = e.target.result;
-                processarExcel(buffer, horaAtualizacao, dataModificacaoArquivo);
-
-                // 2. Envia para a API da Vercel via POST para sincronizar com todos os usuários
-                try {
-                    const response = await fetch(URL_VERCEL_API, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/octet-stream'
-                        },
-                        body: buffer
-                    });
-
-                    if (response.ok) {
-                        statusMsg.innerHTML = "✅ Planilha atualizada com sucesso no servidor!";
-                    } else {
-                        statusMsg.innerHTML = "⚠️ Atualizado apenas localmente (falha ao salvar no servidor).";
-                    }
-                } catch (err) {
-                    console.warn("Erro ao enviar para a Serverless Function:", err);
-                    statusMsg.innerHTML = "⚠️ Atualizado localmente. Servidor offline/sem permissão.";
-                }
-
-                setTimeout(() => {
-                    const modalElement = document.getElementById('uploadModal');
-                    const modal = bootstrap.Modal.getInstance(modalElement);
-                    if (modal) modal.hide();
-                    statusMsg.innerHTML = "";
-                }, 1200);
-            };
-            reader.readAsArrayBuffer(file);
-        });
 
         async function carregarExcelAutomatico() {
             const horaBusca = new Date().toLocaleTimeString('pt-BR');
