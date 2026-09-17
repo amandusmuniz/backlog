@@ -566,20 +566,20 @@
             const maxTotalSemana = Math.max(...totaisPorSemana, 0);
 
             datasetsSemana.push({
-                label: 'Total',
-                data: totaisPorSemana,
-                backgroundColor: 'transparent',
-                type: 'bar',
-                datalabels: {
-                    align: 'top',
-                    anchor: 'end',
-                    color: '#212529',
-                    font: { weight: 'bold', size: 10 },
-                    formatter: function (value) {
-                        return value > 0 ? value : '';
-                    }
-                }
-            });
+				label: 'Total',
+				data: totaisPorSemana,
+				backgroundColor: 'transparent',
+				type: 'bar',
+				datalabels: {
+				align: 'center',
+				anchor: 'center',
+				color: '#212529',
+				font: { weight: 'bold', size: 11 },
+				formatter: function (value) {
+            return value > 0 ? value : '';
+					}
+				}
+			});
 
             chartWeek = new Chart(document.getElementById("chartWeek"), {
                 type: 'bar',
