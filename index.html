@@ -196,7 +196,7 @@
             </div>
         </div>
 
-        <!-- Gráfico Compacto com Scroll -->
+        <!-- Gráfico Compacto com Scroll (Entregas por Semana) -->
         <div class="row section">
             <div class="col-12">
                 <div class="chart-card">
@@ -204,6 +204,20 @@
                     <div class="chart-scroll-container">
                         <div id="chartWeekWrapper" class="chart-scroll-wrapper">
                             <canvas id="chartWeek"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráfico Compacto com Scroll (Horas por Semana por Analista) -->
+        <div class="row section">
+            <div class="col-12">
+                <div class="chart-card">
+                    <h5 class="fw-bold mb-3">⏱️ Total de Horas na Semana por Analista</h5>
+                    <div class="chart-scroll-container">
+                        <div id="chartHorasAnalistaWrapper" class="chart-scroll-wrapper">
+                            <canvas id="chartHorasAnalista"></canvas>
                         </div>
                     </div>
                 </div>
@@ -329,7 +343,7 @@
     <script>
         Chart.register(ChartDataLabels);
 
-        let chartWeek, chartArea, chartStatus, chartPrioridade, chartResponsavel, chartBurndown;
+        let chartWeek, chartArea, chartStatus, chartPrioridade, chartResponsavel, chartBurndown, chartHorasAnalista;
         let dadosCompletos = [];
         let proximaSemanaTexto = "";
         const CAPACIDADE_MENSAL = 780;
@@ -443,6 +457,7 @@
             if (chartPrioridade) chartPrioridade.destroy();
             if (chartResponsavel) chartResponsavel.destroy();
             if (chartBurndown) chartBurndown.destroy();
+            if (chartHorasAnalista) chartHorasAnalista.destroy();
         }
 
         function montarDashboard(dados) {
@@ -500,7 +515,7 @@
         function gerarGraficos(dadosAtivos, horasTotais) {
             destruirGraficos();
 
-            // --- GRÁFICO DE SEMANAS ---
+            // --- GRÁFICO DE SEMANAS (ENTREGAS) ---
             const semanasSet = new Set();
             dadosAtivos.forEach(d => {
                 const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
@@ -637,6 +652,94 @@
                             const index = elements[0].index;
                             const semanaSelecionada = semanasChaves[index];
                             filtrarPorSemanaEspecifica(semanaSelecionada);
+                        }
+                    }
+                }
+            });
+
+            // --- GRÁFICO DE HORAS NA SEMANA POR ANALISTA ---
+            const semanasHorasSet = new Set();
+            const analistasSet = new Set();
+
+            dadosAtivos.forEach(d => {
+                const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
+                const resp = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
+                if (w) {
+                    semanasHorasSet.add(w);
+                    analistasSet.add(resp);
+                }
+            });
+
+            const semanasHorasChaves = Array.from(semanasHorasSet).sort((a, b) => {
+                const numA = parseInt(a.replace(/\D/g, '')) || 0;
+                const numB = parseInt(b.replace(/\D/g, '')) || 0;
+                return numA - numB;
+            });
+
+            const listaAnalistas = Array.from(analistasSet).sort();
+
+            const wrapperHoras = document.getElementById('chartHorasAnalistaWrapper');
+            if (wrapperHoras) {
+                const minWidthHoras = Math.max(semanasHorasChaves.length * (listaAnalistas.length * 20 + 30), 600);
+                wrapperHoras.style.minWidth = minWidthHoras + 'px';
+            }
+
+            const datasetsHorasAnalista = listaAnalistas.map((analista, idx) => {
+                const horasPorSemana = semanasHorasChaves.map(semana => {
+                    return dadosAtivos
+                        .filter(d => {
+                            const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
+                            const resp = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
+                            return w === semana && resp === analista;
+                        })
+                        .reduce((sum, item) => sum + (Number(item.Hour) || 0), 0);
+                });
+
+                return {
+                    label: analista,
+                    data: horasPorSemana,
+                    backgroundColor: PALETA_CORES[idx % PALETA_CORES.length]
+                };
+            });
+
+            chartHorasAnalista = new Chart(document.getElementById("chartHorasAnalista"), {
+                type: 'bar',
+                data: {
+                    labels: semanasHorasChaves.map(s => s.startsWith("W") ? s : "Sem. " + s),
+                    datasets: datasetsHorasAnalista
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: { padding: { top: 20, bottom: 5 } },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { boxWidth: 12, font: { size: 11 } }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw}h`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            color: '#000000',
+                            anchor: 'end',
+                            align: 'top',
+                            font: { weight: 'bold', size: 9 },
+                            formatter: function (value) { return value > 0 ? value + 'h' : ''; }
+                        }
+                    },
+                    scales: {
+                        x: { stacked: false },
+                        y: { 
+                            stacked: false, 
+                            beginAtZero: true,
+                            title: { display: true, text: 'Horas Total' }
                         }
                     }
                 }
