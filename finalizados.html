@@ -73,14 +73,6 @@
         .section {
             margin-top: 25px;
         }
-
-        .file-upload-btn {
-            cursor: pointer;
-        }
-
-        input[type="file"] {
-            display: none;
-        }
     </style>
 </head>
 
@@ -96,10 +88,6 @@
                 <div class="text-white text-end lh-sm small">
                     <div id="fileUpdateInfo">📄 Status: <b>Carregando dados...</b></div>
                 </div>
-                <label class="btn btn-light btn-sm fw-bold file-upload-btn mb-0">
-                    📂 Carregar Arquivo
-                    <input type="file" id="excelFileInput" accept=".xlsx, .xls" onchange="handleManualFile(event)">
-                </label>
                 <!-- Botão para voltar ao Dashboard Principal -->
                 <a href="index.html" class="btn btn-outline-light btn-sm fw-bold">
                     ⬅️ Ver Backlog Pendente
@@ -252,26 +240,11 @@
                 parseExcelData(arrayBuffer);
             } catch (error) {
                 console.warn('Falha no carregamento automático:', error.message);
-                document.getElementById('fileUpdateInfo').innerHTML = '📄 Modificação: <b class="text-warning">Aguardando seleção...</b>';
-                document.getElementById('emptyMessage').className = 'alert alert-warning text-center mt-4 shadow-sm';
+                document.getElementById('fileUpdateInfo').innerHTML = '📄 Modificação: <b class="text-warning">Erro ao carregar</b>';
+                document.getElementById('emptyMessage').className = 'alert alert-danger text-center mt-4 shadow-sm';
                 document.getElementById('emptyMessage').innerHTML = 
-                    `Não foi possível carregar <b>${DEFAULT_FILE_NAME}</b> automaticamente.<br>Por favor, selecione o arquivo manualmente no botão acima.`;
+                    `Não foi possível localizar o arquivo <b>${DEFAULT_FILE_NAME}</b> na raiz da aplicação.`;
             }
-        }
-
-        function handleManualFile(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const fileDate = new Date(file.lastModified);
-            document.getElementById('fileUpdateInfo').innerHTML = 
-                `📄 Carregado: <b>${file.name} (${fileDate.toLocaleDateString('pt-BR')} ${fileDate.toLocaleTimeString('pt-BR')})</b>`;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                parseExcelData(e.target.result);
-            };
-            reader.readAsArrayBuffer(file);
         }
 
         function parseExcelData(arrayBuffer) {
@@ -357,8 +330,12 @@
 
             data.forEach(item => {
                 const state = String(item['State'] || 'Indefinido').trim();
-                const tipo = String(item['Type'] || 'Outros').trim();
-                const resp = String(item['Assigned To'] || 'Não Atribuído').trim();
+                const tipo = String(item['Type'] || item['Work Item Type'] || 'Outros').trim();
+                
+                // Mapeamento flexível da coluna de responsável
+                const rawResp = item['Assigned To'] || item['AssignedTo'] || item['Atribuído a'] || item['Responsável'] || 'Não Atribuído';
+                let resp = String(rawResp).trim();
+
                 const closedDateRaw = item['Closed Date'] || item['Closed date'];
                 const createdDateRaw = item['Created Date'] || item['Created date'];
 
@@ -366,7 +343,7 @@
                     statusCount[state] = (statusCount[state] || 0) + 1;
                 }
 
-                if (state.toLowerCase() === 'done') {
+                if (state.toLowerCase() === 'done' || state.toLowerCase() === 'concluído' || state.toLowerCase() === 'finalizado') {
                     concluidos++;
                 } else {
                     emAndamento++;
@@ -390,9 +367,13 @@
                     tipoCount[tipo] = (tipoCount[tipo] || 0) + 1;
                 }
 
+                // Extrai nome limpo desconsiderando e-mails ou metadados <email@domain.com>
                 if (resp) {
-                    const respFormatted = resp.split('<')[0].trim();
+                    let respFormatted = resp.split('<')[0].trim();
+                    if (!respFormatted) respFormatted = 'Não Atribuído';
                     respCount[respFormatted] = (respCount[respFormatted] || 0) + 1;
+                } else {
+                    respCount['Não Atribuído'] = (respCount['Não Atribuído'] || 0) + 1;
                 }
 
                 if (closedDateRaw) {
@@ -422,7 +403,6 @@
             if (chartTipoInstance) chartTipoInstance.destroy();
             if (chartResponsavelInstance) chartResponsavelInstance.destroy();
 
-            // Configuração comum para manter o dimensionamento e resposta fluida
             const commonOptions = {
                 responsive: true,
                 maintainAspectRatio: false
@@ -494,7 +474,15 @@
                 },
                 options: {
                     ...commonOptions,
-                    indexAxis: 'y'
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
+                        }
+                    }
                 }
             });
         }
