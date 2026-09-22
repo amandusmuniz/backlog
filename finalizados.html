@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Gestão de Entregas - Backlog</title>
+    
+    <!-- Chart.js para Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS para ler o arquivo Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f4f7f6;
+            color: #333;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #1e293b;
+            color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+        }
+
+        .header-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .file-info {
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            font-style: italic;
+        }
+
+        .file-upload {
+            background: #2563eb;
+            color: white;
+            padding: 8px 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: background 0.3s;
+        }
+
+        .file-upload:hover {
+            background: #1d4ed8;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .filters {
+            background: #ffffff;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .filters label {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #475569;
+        }
+
+        .filters input[type="date"] {
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .btn-filter {
+            background-color: #0f766e;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-filter:hover {
+            background-color: #115e59;
+        }
+
+        .kpi-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .kpi-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-left: 5px solid #2563eb;
+        }
+
+        .kpi-card h3 {
+            font-size: 0.85rem;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .kpi-card .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #0f172a;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+
+        .chart-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .chart-card h2 {
+            font-size: 1.1rem;
+            color: #334155;
+            margin-bottom: 15px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 50px;
+            background: white;
+            border-radius: 8px;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1>Dashboard de Gestão de Entregas - Backlog</h1>
+        </div>
+        <div class="header-info">
+            <span class="file-info" id="fileUpdateInfo">Carregando dados automaticamente...</span>
+            <label class="file-upload">
+                Carregar Outro Arquivo
+                <input type="file" id="excelFileInput" accept=".xlsx, .xls">
+            </label>
+        </div>
+    </header>
+
+    <div class="filters">
+        <div>
+            <label for="startDate">Data Inicial:</label>
+            <input type="date" id="startDate">
+        </div>
+        <div>
+            <label for="endDate">Data Final:</label>
+            <input type="date" id="endDate">
+        </div>
+        <button class="btn-filter" onclick="applyFilters()">Filtrar</button>
+    </div>
+
+    <div class="kpi-container" id="kpiSection" style="display: none;">
+        <div class="kpi-card" style="border-left-color: #2563eb;">
+            <h3>Total de Tarefas</h3>
+            <div class="value" id="kpiTotal">0</div>
+        </div>
+        <div class="kpi-card" style="border-left-color: #16a34a;">
+            <h3>Entregas / Concluídos</h3>
+            <div class="value" id="kpiConcluidos">0</div>
+        </div>
+        <div class="kpi-card" style="border-left-color: #eab308;">
+            <h3>Em Andamento</h3>
+            <div class="value" id="kpiEmAndamento">0</div>
+        </div>
+        <div class="kpi-card" style="border-left-color: #dc2626;">
+            <h3>Lead Time Médio (Dias)</h3>
+            <div class="value" id="kpiLeadTime">0</div>
+        </div>
+    </div>
+
+    <div id="emptyMessage" class="empty-state">
+        <p>Aguardando leitura do arquivo <strong>Dashboard_Backlog_Finalizados.xlsx</strong>...</p>
+    </div>
+
+    <div class="charts-container" id="chartsSection" style="display: none;">
+        <div class="chart-card">
+            <h2>Status das Entregas (State)</h2>
+            <canvas id="chartStatus"></canvas>
+        </div>
+        <div class="chart-card">
+            <h2>Entregas por Mês (Closed Date)</h2>
+            <canvas id="chartEvolucao"></canvas>
+        </div>
+        <div class="chart-card">
+            <h2>Entregas por Tipo (Type)</h2>
+            <canvas id="chartTipo"></canvas>
+        </div>
+        <div class="chart-card">
+            <h2>Entregas por Responsável (Assigned To)</h2>
+            <canvas id="chartResponsavel"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const DEFAULT_FILE_NAME = 'Dashboard_Backlog_Finalizados.xlsx';
+        let rawData = [];
+        let chartStatusInstance = null;
+        let chartEvolucaoInstance = null;
+        let chartTipoInstance = null;
+        let chartResponsavelInstance = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAutoExcel();
+        });
+
+        document.getElementById('excelFileInput').addEventListener('change', handleManualFile, false);
+
+        // Função de leitura automática ao abrir a página
+        async function loadAutoExcel() {
+            try {
+                const response = await fetch(`./${DEFAULT_FILE_NAME}`);
+                if (!response.ok) {
+                    throw new Error(`Arquivo não encontrado no servidor (${response.status})`);
+                }
+
+                // Captura a data de modificação enviada pelos cabeçalhos do servidor HTTP
+                const lastModifiedHeader = response.headers.get('Last-Modified');
+                if (lastModifiedHeader) {
+                    const fileDate = new Date(lastModifiedHeader);
+                    document.getElementById('fileUpdateInfo').innerText = 
+                        `Atualizado em: ${fileDate.toLocaleDateString('pt-BR')} às ${fileDate.toLocaleTimeString('pt-BR')}`;
+                } else {
+                    document.getElementById('fileUpdateInfo').innerText = `Arquivo: ${DEFAULT_FILE_NAME}`;
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                parseExcelData(arrayBuffer);
+            } catch (error) {
+                console.warn('Falha no carregamento automático:', error.message);
+                document.getElementById('fileUpdateInfo').innerText = 'Aguardando seleção manual do arquivo...';
+                document.getElementById('emptyMessage').innerHTML = 
+                    `<p style="color: #dc2626;">Não foi possível carregar <strong>${DEFAULT_FILE_NAME}</strong> automaticamente.<br>Por favor, selecione o arquivo manualmente no botão acima.</p>`;
+            }
+        }
+
+        function handleManualFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const fileDate = new Date(file.lastModified);
+            document.getElementById('fileUpdateInfo').innerText = 
+                `Arquivo carregado: ${file.name} (${fileDate.toLocaleDateString('pt-BR')} às ${fileDate.toLocaleTimeString('pt-BR')})`;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                parseExcelData(e.target.result);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseExcelData(arrayBuffer) {
+            const data = new Uint8Array(arrayBuffer);
+            const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+            
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            const jsonArray = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""});
+            
+            if (jsonArray.length === 0) return;
+
+            // Identifica a linha que contém as colunas principais do TFS
+            let headerRowIndex = 0;
+            for (let i = 0; i < Math.min(jsonArray.length, 10); i++) {
+                if (jsonArray[i].includes('State') || jsonArray[i].includes('ID') || jsonArray[i].includes('Title')) {
+                    headerRowIndex = i;
+                    break;
+                }
+            }
+
+            const headers = jsonArray[headerRowIndex].map(h => String(h).trim());
+            rawData = [];
+
+            for (let i = headerRowIndex + 1; i < jsonArray.length; i++) {
+                const rowArray = jsonArray[i];
+                if (!rowArray || rowArray.length === 0) continue;
+                
+                let rowObj = {};
+                headers.forEach((headerName, index) => {
+                    if (headerName) {
+                        rowObj[headerName] = rowArray[index] !== undefined ? rowArray[index] : "";
+                    }
+                });
+
+                if (rowObj['ID'] || rowObj['Title'] || rowObj['State']) {
+                    rawData.push(rowObj);
+                }
+            }
+
+            document.getElementById('emptyMessage').style.display = 'none';
+            document.getElementById('kpiSection').style.display = 'grid';
+            document.getElementById('chartsSection').style.display = 'grid';
+
+            processData(rawData);
+        }
+
+        function applyFilters() {
+            if (!rawData.length) return;
+
+            const startDateInput = document.getElementById('startDate').value;
+            const endDateInput = document.getElementById('endDate').value;
+
+            const startDate = startDateInput ? new Date(startDateInput + 'T00:00:00') : null;
+            const endDate = endDateInput ? new Date(endDateInput + 'T23:59:59') : null;
+
+            const filteredData = rawData.filter(row => {
+                const dateVal = row['Closed Date'] || row['Closed date'];
+                if (!dateVal) return true;
+
+                const itemDate = new Date(dateVal);
+                if (isNaN(itemDate.getTime())) return true;
+
+                if (startDate && itemDate < startDate) return false;
+                if (endDate && itemDate > endDate) return false;
+                return true;
+            });
+
+            processData(filteredData);
+        }
+
+        function processData(data) {
+            let total = data.length;
+            let concluidos = 0;
+            let emAndamento = 0;
+            let statusCount = {};
+            let tipoCount = {};
+            let respCount = {};
+            let mensalCount = {};
+
+            let totalLeadTimeDias = 0;
+            let qtdLeadTimeValidos = 0;
+
+            data.forEach(item => {
+                const state = String(item['State'] || 'Indefinido').trim();
+                const tipo = String(item['Type'] || 'Outros').trim();
+                const resp = String(item['Assigned To'] || 'Não Atribuído').trim();
+                const closedDateRaw = item['Closed Date'] || item['Closed date'];
+                const createdDateRaw = item['Created Date'] || item['Created date'];
+
+                // 1. Status (State)
+                if (state) {
+                    statusCount[state] = (statusCount[state] || 0) + 1;
+                }
+
+                // Regra: Concluído quando State for 'Done'
+                if (state.toLowerCase() === 'done') {
+                    concluidos++;
+                } else {
+                    emAndamento++;
+                }
+
+                // 2. Lead Time em dias (Created Date -> Closed Date)
+                if (createdDateRaw && closedDateRaw) {
+                    const createdDate = new Date(createdDateRaw);
+                    const closedDate = new Date(closedDateRaw);
+
+                    if (!isNaN(createdDate.getTime()) && !isNaN(closedDate.getTime())) {
+                        const diffMs = closedDate - createdDate;
+                        if (diffMs >= 0) {
+                            const diffDias = diffMs / (1000 * 60 * 60 * 24);
+                            totalLeadTimeDias += diffDias;
+                            qtdLeadTimeValidos++;
+                        }
+                    }
+                }
+
+                // 3. Tipo (Type)
+                if (tipo) {
+                    tipoCount[tipo] = (tipoCount[tipo] || 0) + 1;
+                }
+
+                // 4. Responsável (Assigned To)
+                if (resp) {
+                    const respFormatted = resp.split('<')[0].trim();
+                    respCount[respFormatted] = (respCount[respFormatted] || 0) + 1;
+                }
+
+                // 5. Entregas por Mês (Closed Date)
+                if (closedDateRaw) {
+                    const d = new Date(closedDateRaw);
+                    if (!isNaN(d.getTime())) {
+                        const mesAno = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        mensalCount[mesAno] = (mensalCount[mesAno] || 0) + 1;
+                    }
+                }
+            });
+
+            const leadTimeMedio = qtdLeadTimeValidos > 0 
+                ? (totalLeadTimeDias / qtdLeadTimeValidos).toFixed(1) 
+                : "N/A";
+
+            // Atualiza KPIs
+            document.getElementById('kpiTotal').innerText = total;
+            document.getElementById('kpiConcluidos').innerText = concluidos;
+            document.getElementById('kpiEmAndamento').innerText = emAndamento;
+            document.getElementById('kpiLeadTime').innerText = leadTimeMedio;
+
+            // Renderiza Gráficos
+            renderCharts(statusCount, mensalCount, tipoCount, respCount);
+        }
+
+        function renderCharts(statusData, mensalData, tipoData, respData) {
+            if (chartStatusInstance) chartStatusInstance.destroy();
+            if (chartEvolucaoInstance) chartEvolucaoInstance.destroy();
+            if (chartTipoInstance) chartTipoInstance.destroy();
+            if (chartResponsavelInstance) chartResponsavelInstance.destroy();
+
+            // 1. Gráfico de Status (State)
+            chartStatusInstance = new Chart(document.getElementById('chartStatus'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(statusData),
+                    datasets: [{
+                        data: Object.values(statusData),
+                        backgroundColor: ['#16a34a', '#2563eb', '#eab308', '#dc2626', '#94a3b8', '#8b5cf6']
+                    }]
+                }
+            });
+
+            // 2. Gráfico por Mês (Closed Date)
+            const sortedMonths = Object.keys(mensalData).sort();
+            chartEvolucaoInstance = new Chart(document.getElementById('chartEvolucao'), {
+                type: 'line',
+                data: {
+                    labels: sortedMonths,
+                    datasets: [{
+                        label: 'Entregas por Mês (Closed Date)',
+                        data: sortedMonths.map(m => mensalData[m]),
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                }
+            });
+
+            // 3. Gráfico por Tipo (Type)
+            chartTipoInstance = new Chart(document.getElementById('chartTipo'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(tipoData),
+                    datasets: [{
+                        label: 'Quantidade por Tipo',
+                        data: Object.values(tipoData),
+                        backgroundColor: '#0f766e'
+                    }]
+                }
+            });
+
+            // 4. Gráfico por Responsável (Assigned To)
+            chartResponsavelInstance = new Chart(document.getElementById('chartResponsavel'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(respData),
+                    datasets: [{
+                        label: 'Itens Atribuídos / Entregues',
+                        data: Object.values(respData),
+                        backgroundColor: '#8b5cf6'
+                    }]
+                },
+                options: {
+                    indexAxis: 'y'
+                }
+            });
+        }
+    </script>
+</body>
+</html>
