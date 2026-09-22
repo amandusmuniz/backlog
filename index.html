@@ -111,10 +111,14 @@
                 <div class="text-white text-end lh-sm small">
                     <div id="statusSincronizacao">🕒 Última Busca: <b>--:--:--</b></div>
                     <div id="statusArquivo">📄 Modificação do Arquivo: <b>Aguardando...</b></div>
-                </div>
+                </div>                
                 <button class="btn btn-light btn-sm fw-bold" onclick="carregarExcelAutomatico()">
                     🔄 Atualizar Agora
                 </button>
+				<!-- Botão para abrir o Dashboard de Finalizados -->
+                <a href="finalizados.html" class="btn btn-outline-light btn-sm fw-bold">
+                    ✅ Ver Finalizados
+                </a>
             </div>
         </div>
     </nav>
@@ -961,8 +965,7 @@
         }
 
         function filtrarPorKPI(tipo, elemento) {
-            $('.card-kpi').removeClass('active-kpi');
-            $(elemento).addClass('active-kpi');
+            $('.card-kpi').removeClass('active-kpi');$(elemento).addClass('active-kpi');
 
             const table = $('#tblBacklog').DataTable();
             const indicador = document.getElementById('indicadorFiltro');
