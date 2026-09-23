@@ -40,12 +40,18 @@
             box-shadow: 0 2px 10px rgba(0, 0, 0, .08);
             background-color: #ffffff;
             transition: all 0.2s ease-in-out;
+            cursor: pointer;
         }
 
         .card-kpi:hover {
             transform: translateY(-4px);
             box-shadow: 0 6px 15px rgba(0, 0, 0, .15);
             border-color: var(--jbs-red);
+        }
+
+        .card-kpi.active-kpi {
+            border-color: var(--jbs-red);
+            background-color: #fff5f5;
         }
 
         .kpi {
@@ -72,6 +78,11 @@
 
         .section {
             margin-top: 25px;
+        }
+
+        .table-responsive {
+            max-height: 450px;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -124,10 +135,10 @@
             Aguardando leitura do arquivo <b>Dashboard_Backlog_Finalizados.xlsx</b>...
         </div>
 
-        <!-- KPIs -->
+        <!-- KPIs Clicáveis -->
         <div class="row section g-3 row-cols-1 row-cols-sm-2 row-cols-md-4" id="kpiSection" style="display: none;">
             <div class="col">
-                <div class="card card-kpi">
+                <div class="card card-kpi" id="kpiCardTotal" onclick="filterByKpi('total')">
                     <div class="card-body text-center p-3">
                         <h6 class="text-muted small mb-1">Total de Tarefas</h6>
                         <div id="kpiTotal" class="kpi text-primary">0</div>
@@ -136,7 +147,7 @@
             </div>
 
             <div class="col">
-                <div class="card card-kpi">
+                <div class="card card-kpi" id="kpiCardConcluidos" onclick="filterByKpi('concluidos')">
                     <div class="card-body text-center p-3">
                         <h6 class="text-muted small mb-1">Entregas / Concluídos</h6>
                         <div id="kpiConcluidos" class="kpi text-success">0</div>
@@ -145,7 +156,7 @@
             </div>
 
             <div class="col">
-                <div class="card card-kpi">
+                <div class="card card-kpi" id="kpiCardEmAndamento" onclick="filterByKpi('emandamento')">
                     <div class="card-body text-center p-3">
                         <h6 class="text-muted small mb-1">Em Andamento</h6>
                         <div id="kpiEmAndamento" class="kpi text-warning">0</div>
@@ -154,7 +165,7 @@
             </div>
 
             <div class="col">
-                <div class="card card-kpi">
+                <div class="card card-kpi" id="kpiCardLeadTime" onclick="filterByKpi('leadtime')">
                     <div class="card-body text-center p-3">
                         <h6 class="text-muted small mb-1">Lead Time Médio (Dias)</h6>
                         <div id="kpiLeadTime" class="kpi text-danger">0</div>
@@ -202,11 +213,41 @@
             </div>
         </div>
 
+        <!-- Tabela de Registros ao Clicar no KPI -->
+        <div class="row section" id="detailsSection" style="display: none;">
+            <div class="col-12">
+                <div class="chart-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold m-0" id="tableTitle">📋 Registros Selecionados</h5>
+                        <span class="badge bg-secondary fs-6" id="tableBadgeCount">0 itens</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover align-middle mb-0">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Título / Tarefa</th>
+                                    <th>State</th>
+                                    <th>Type</th>
+                                    <th>Assigned To</th>
+                                    <th>Departament</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailsTableBody">
+                                <!-- Preenchido dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
         const DEFAULT_FILE_NAME = 'Dashboard_Backlog_Finalizados.xlsx';
         let rawData = [];
+        let currentFilteredData = [];
         let chartStatusInstance = null;
         let chartEvolucaoInstance = null;
         let chartTipoInstance = null;
@@ -289,7 +330,8 @@
             document.getElementById('kpiSection').style.display = 'flex';
             document.getElementById('chartsSection').style.display = 'flex';
 
-            processData(rawData);
+            currentFilteredData = [...rawData];
+            processData(currentFilteredData);
         }
 
         function applyFilters() {
@@ -301,7 +343,7 @@
             const startDate = startDateInput ? new Date(startDateInput + 'T00:00:00') : null;
             const endDate = endDateInput ? new Date(endDateInput + 'T23:59:59') : null;
 
-            const filteredData = rawData.filter(row => {
+            currentFilteredData = rawData.filter(row => {
                 const dateVal = row['Closed Date'] || row['Closed date'];
                 if (!dateVal) return true;
 
@@ -313,7 +355,11 @@
                 return true;
             });
 
-            processData(filteredData);
+            // Oculta tabela de detalhes ao aplicar novos filtros de data
+            document.getElementById('detailsSection').style.display = 'none';
+            document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
+
+            processData(currentFilteredData);
         }
 
         function processData(data) {
@@ -332,7 +378,6 @@
                 const state = String(item['State'] || 'Indefinido').trim();
                 const tipo = String(item['Type'] || item['Work Item Type'] || 'Outros').trim();
                 
-                // Mapeamento flexível da coluna de responsável
                 const rawResp = item['Assigned To'] || item['AssignedTo'] || item['Atribuído a'] || item['Responsável'] || 'Não Atribuído';
                 let resp = String(rawResp).trim();
 
@@ -367,7 +412,6 @@
                     tipoCount[tipo] = (tipoCount[tipo] || 0) + 1;
                 }
 
-                // Extrai nome limpo desconsiderando e-mails ou metadados <email@domain.com>
                 if (resp) {
                     let respFormatted = resp.split('<')[0].trim();
                     if (!respFormatted) respFormatted = 'Não Atribuído';
@@ -395,6 +439,90 @@
             document.getElementById('kpiLeadTime').innerText = leadTimeMedio;
 
             renderCharts(statusCount, mensalCount, tipoCount, respCount);
+        }
+
+        // Função chamada ao clicar em um Card KPI
+        function filterByKpi(type) {
+            document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
+
+            let records = [];
+            let title = '';
+
+            if (type === 'total') {
+                document.getElementById('kpiCardTotal').classList.add('active-kpi');
+                records = currentFilteredData;
+                title = '📋 Registros: Total de Tarefas';
+            } else if (type === 'concluidos') {
+                document.getElementById('kpiCardConcluidos').classList.add('active-kpi');
+                records = currentFilteredData.filter(item => {
+                    const st = String(item['State'] || '').toLowerCase();
+                    return st === 'done' || st === 'concluído' || st === 'finalizado';
+                });
+                title = '✅ Registros: Entregas / Concluídos';
+            } else if (type === 'emandamento') {
+                document.getElementById('kpiCardEmAndamento').classList.add('active-kpi');
+                records = currentFilteredData.filter(item => {
+                    const st = String(item['State'] || '').toLowerCase();
+                    return st !== 'done' && st !== 'concluído' && st !== 'finalizado';
+                });
+                title = '⏳ Registros: Em Andamento';
+            } else if (type === 'leadtime') {
+                document.getElementById('kpiCardLeadTime').classList.add('active-kpi');
+                records = currentFilteredData.filter(item => {
+                    const createdDateRaw = item['Created Date'] || item['Created date'];
+                    const closedDateRaw = item['Closed Date'] || item['Closed date'];
+                    if (!createdDateRaw || !closedDateRaw) return false;
+                    const cDate = new Date(createdDateRaw);
+                    const fDate = new Date(closedDateRaw);
+                    return !isNaN(cDate.getTime()) && !isNaN(fDate.getTime()) && (fDate >= cDate);
+                });
+                title = '⏱️ Registros: Com Cálculo de Lead Time Valido';
+            }
+
+            renderDetailsTable(records, title);
+        }
+
+        // Renderiza os dados filtrados na tabela inferior
+        function renderDetailsTable(records, title) {
+            const tableBody = document.getElementById('detailsTableBody');
+            tableBody.innerHTML = '';
+
+            document.getElementById('tableTitle').innerText = title;
+            document.getElementById('tableBadgeCount').innerText = `${records.length} item(ns)`;
+
+            if (records.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">Nenhum registro encontrado para este filtro.</td></tr>`;
+            } else {
+                records.forEach(item => {
+                    const id = item['ID'] || '-';
+                    const titleVal = item['Title'] || item['Título'] || '-';
+                    const state = item['State'] || '-';
+                    const type = item['Type'] || item['Work Item Type'] || '-';
+
+                    const rawResp = item['Assigned To'] || item['AssignedTo'] || item['Atribuído a'] || item['Responsável'] || 'Não Atribuído';
+                    let resp = String(rawResp).split('<')[0].trim();
+                    if (!resp) resp = 'Não Atribuído';
+
+                    // Extração flexível da coluna Departament
+                    const dept = item['Departament'] || item['Department'] || item['Departamento'] || item['Area'] || item['Área'] || '-';
+
+                    const rowHTML = `
+                        <tr>
+                            <td class="fw-bold">${id}</td>
+                            <td>${titleVal}</td>
+                            <td><span class="badge bg-secondary">${state}</span></td>
+                            <td>${type}</td>
+                            <td>${resp}</td>
+                            <td><span class="badge bg-light text-dark border">${dept}</span></td>
+                        </tr>
+                    `;
+                    tableBody.innerHTML += rowHTML;
+                });
+            }
+
+            const detailsSec = document.getElementById('detailsSection');
+            detailsSec.style.display = 'block';
+            detailsSec.scrollIntoView({ behavior: 'smooth' });
         }
 
         function renderCharts(statusData, mensalData, tipoData, respData) {
