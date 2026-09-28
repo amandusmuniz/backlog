@@ -185,7 +185,7 @@
             <div class="col">
                 <div class="card card-kpi" id="kpiCardLeadTime" onclick="filterByKpi('leadtime')">
                     <div class="card-body text-center p-3">
-                        <h6 class="text-muted small mb-1">Lead Time Médio (Dias)</h6>
+                        <h6 class="text-muted small mb-1">Lead Time Mediano (Dias)</h6>
                         <div id="kpiLeadTime" class="kpi text-danger">0</div>
                     </div>
                 </div>
@@ -394,8 +394,7 @@
             let respCount = {};
             let mensalCount = {};
 
-            let totalLeadTimeDias = 0;
-            let qtdLeadTimeValidos = 0;
+            let leadTimeValues = [];
 
             data.forEach(item => {
                 const state = String(item['State'] || 'Indefinido').trim();
@@ -425,8 +424,7 @@
                         const diffMs = closedDate - createdDate;
                         if (diffMs >= 0) {
                             const diffDias = diffMs / (1000 * 60 * 60 * 24);
-                            totalLeadTimeDias += diffDias;
-                            qtdLeadTimeValidos++;
+                            leadTimeValues.push(diffDias);
                         }
                     }
                 }
@@ -452,14 +450,23 @@
                 }
             });
 
-            const leadTimeMedio = qtdLeadTimeValidos > 0 
-                ? (totalLeadTimeDias / qtdLeadTimeValidos).toFixed(1) 
-                : "N/A";
+            // Cálculo da Mediana
+            let leadTimeMediano = "N/A";
+            if (leadTimeValues.length > 0) {
+                leadTimeValues.sort((a, b) => a - b);
+                const half = Math.floor(leadTimeValues.length / 2);
+
+                if (leadTimeValues.length % 2 !== 0) {
+                    leadTimeMediano = leadTimeValues[half].toFixed(1);
+                } else {
+                    leadTimeMediano = ((leadTimeValues[half - 1] + leadTimeValues[half]) / 2.0).toFixed(1);
+                }
+            }
 
             document.getElementById('kpiTotal').innerText = total;
             document.getElementById('kpiConcluidos').innerText = concluidos;
             document.getElementById('kpiEmAndamento').innerText = emAndamento;
-            document.getElementById('kpiLeadTime').innerText = leadTimeMedio;
+            document.getElementById('kpiLeadTime').innerText = leadTimeMediano;
 
             renderCharts(statusCount, mensalCount, tipoCount, respCount);
         }
