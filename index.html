@@ -204,7 +204,7 @@
         <div class="row section">
             <div class="col-12">
                 <div class="chart-card">
-                    <h5 class="fw-bold mb-3">📅 Entregas por Semana x Status (Coluna Week)</h5>
+                    <h5 class="fw-bold mb-3">📅 Cards por Semana x Status (Coluna Week)</h5>
                     <div class="chart-scroll-container">
                         <div id="chartWeekWrapper" class="chart-scroll-wrapper">
                             <canvas id="chartWeek"></canvas>
@@ -977,46 +977,99 @@
                 options: { responsive: true, plugins: { legend: { display: false }, ...desativarDataLabels } }
             });
 
-            const responsavel = agrupar(dadosAtivos, "Assigned To");
+// --- GRÁFICO DE RESPONSÁVEIS X STATUS (BOARD COLUMN) ---
+            const responsaveisSet = new Set();
+            dadosAtivos.forEach(d => {
+                const resp = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
+                responsaveisSet.add(resp);
+            });
+            const listaResponsaveis = Array.from(responsaveisSet).sort();
+
+            const statusRespSet = new Set();
+            dadosAtivos.forEach(d => {
+                const st = d["Board Column"] ? String(d["Board Column"]).trim() : "Sem Status";
+                statusRespSet.add(st);
+            });
+            const listaStatusResp = Array.from(statusRespSet).sort();
+
+            const datasetsResponsavel = listaStatusResp.map((status, idx) => {
+                const dataValues = listaResponsaveis.map(resp => {
+                    return dadosAtivos.filter(d => {
+                        const r = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
+                        const st = d["Board Column"] ? String(d["Board Column"]).trim() : "Sem Status";
+                        return r === resp && st === status;
+                    }).length;
+                });
+
+                return {
+                    label: status,
+                    data: dataValues,
+                    backgroundColor: PALETA_CORES[idx % PALETA_CORES.length],
+                    stack: 'StackResp'
+                };
+            });
+
+            const totaisPorResponsavel = listaResponsaveis.map(resp => {
+                return dadosAtivos.filter(d => {
+                    const r = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
+                    return r === resp;
+                }).length;
+            });
+
+            const maxTotalResp = Math.max(...totaisPorResponsavel, 0);
+
+            datasetsResponsavel.push({
+                label: 'Total',
+                data: totaisPorResponsavel,
+                backgroundColor: 'transparent',
+                type: 'bar',
+                datalabels: {
+                    align: 'end',
+                    anchor: 'end',
+                    color: '#212529',
+                    font: { weight: 'bold', size: 10 },
+                    formatter: function (value) {
+                        return value > 0 ? value : '';
+                    }
+                }
+            });
+			
+			// --- GRÁFICO DE RESPONSÁVEIS X STATUS (BOARD COLUMN) ---
             chartResponsavel = new Chart(document.getElementById("chartResponsavel"), {
                 type: 'bar',
                 data: {
-                    labels: Object.keys(responsavel),
-                    datasets: [{
-                        label: 'Itens',
-                        data: Object.values(responsavel),
-                        backgroundColor: '#28a745'
-                    }]
+                    labels: listaResponsaveis,
+                    datasets: datasetsResponsavel
                 },
-                options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false }, ...desativarDataLabels } }
-            });
-
-            const rotulosMeses = ['Atual'];
-            const dadosBurndown = [horasTotais];
-            let horasRestantes = horasTotais;
-            let m = 1;
-
-            while (horasRestantes > 0 && m <= 12) {
-                rotulosMeses.push('M' + m);
-                horasRestantes = Math.max(0, horasRestantes - CAPACIDADE_MENSAL);
-                dadosBurndown.push(horasRestantes);
-                m++;
-            }
-
-            chartBurndown = new Chart(document.getElementById("chartBurndown"), {
-                type: 'line',
-                data: {
-                    labels: rotulosMeses,
-                    datasets: [{
-                        label: 'Horas Restantes',
-                        data: dadosBurndown,
-                        borderColor: '#dc3545',
-                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
-                        fill: true,
-                        tension: 0.2
-                    }]
-                },
-                options: { responsive: true, plugins: { ...desativarDataLabels } }
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    layout: { padding: { right: 30 } },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                boxWidth: 12,
+                                font: { size: 10 },
+                                filter: function (legendItem) { return legendItem.text !== 'Total'; }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            filter: function (tooltipItem) { return tooltipItem.dataset.label !== 'Total'; }
+                        },
+                        datalabels: {
+                            color: '#ffffff',
+                            font: { weight: 'bold', size: 10 },
+                            formatter: function (value) { return value > 0 ? value : ''; }
+                        }
+                    },
+                    scales: {
+                        x: { stacked: true, beginAtZero: true, suggestedMax: maxTotalResp + 2 },
+                        y: { stacked: true }
+                    }
+                }
             });
         }
 
