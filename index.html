@@ -674,6 +674,86 @@
                 }
             });
 
+			// --- GRÁFICO BURNDOWN FORECAST (HORAS ATIVAS) ---
+            // 1. Coleta e ordena as semanas com itens ativos
+            const semanasBurndownSet = new Set();
+            dadosAtivos.forEach(d => {
+                const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
+                if (w) semanasBurndownSet.add(w);
+            });
+
+            const semanasBurndownChaves = Array.from(semanasBurndownSet).sort((a, b) => {
+                const numA = parseInt(a.replace(/\D/g, '')) || 0;
+                const numB = parseInt(b.replace(/\D/g, '')) || 0;
+                return numA - numB;
+            });
+
+            // 2. Calcula as horas queimadas por semana e a linha de tendência (restante)
+            let horasRestantes = horasTotais;
+            const labelsBurndown = ['Início', ...semanasBurndownChaves.map(s => s.startsWith("W") ? s : "Sem. " + s)];
+            const dadosBurndown = [horasTotais];
+
+            semanasBurndownChaves.forEach(semana => {
+                const horasNaSemana = dadosAtivos
+                    .filter(d => {
+                        const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
+                        return w === semana;
+                    })
+                    .reduce((sum, item) => sum + (Number(item.Hour) || 0), 0);
+
+                horasRestantes = Math.max(0, horasRestantes - horasNaSemana);
+                dadosBurndown.push(horasRestantes);
+            });
+
+            // 3. Renderiza o gráfico de linha (Burndown)
+            chartBurndown = new Chart(document.getElementById("chartBurndown"), {
+                type: 'line',
+                data: {
+                    labels: labelsBurndown,
+                    datasets: [{
+                        label: 'Horas Restantes',
+                        data: dadosBurndown,
+                        borderColor: '#dc3545',
+                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                        fill: true,
+                        tension: 0.2,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#dc3545'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return `Horas Restantes: ${context.raw}h`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            align: 'top',
+                            anchor: 'end',
+                            color: '#212529',
+                            font: { weight: 'bold', size: 10 },
+                            formatter: function (value) {
+                                return value + 'h';
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Horas Restantes (h)' }
+                        },
+                        x: {
+                            title: { display: true, text: 'Semanas de Entrega' }
+                        }
+                    }
+                }
+            });
+
             // --- GRÁFICO DE HORAS NA SEMANA POR ANALISTA ---
             const semanasHorasSet = new Set();
             const analistasSet = new Set();
@@ -762,7 +842,7 @@
                 }
             });
 
-            // --- NOVO GRÁFICO: CARDS POR SEMANA X ANALISTA E STATUS ---
+            // --- CARDS POR SEMANA X ANALISTA E STATUS ---
             const wrapperCardsAnalista = document.getElementById('chartCardsAnalistaWrapper');
             if (wrapperCardsAnalista) {
                 const minWidthCards = Math.max(semanasHorasChaves.length * (listaAnalistas.length * 25 + 30), 600);
@@ -977,7 +1057,7 @@
                 options: { responsive: true, plugins: { legend: { display: false }, ...desativarDataLabels } }
             });
 
-// --- GRÁFICO DE RESPONSÁVEIS X STATUS (BOARD COLUMN) ---
+		// --- GRÁFICO DE RESPONSÁVEIS X STATUS (BOARD COLUMN) ---
             const responsaveisSet = new Set();
             dadosAtivos.forEach(d => {
                 const resp = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
