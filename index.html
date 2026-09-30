@@ -228,7 +228,7 @@
             </div>
         </div>
 
-        <!-- NOVO GRÁFICO: Cards por Semana x Analista x Status -->
+        <!-- Cards por Semana x Analista x Status -->
         <div class="row section">
             <div class="col-12">
                 <div class="chart-card">
@@ -480,8 +480,23 @@
         function montarDashboard(dados) {
             const pendentes = dados.filter(x => x.State !== "Done");
 
-            const pendentesAtivos = pendentes.filter(x => String(x["Board Column"]).trim().toLowerCase() !== "hold");
             const emHold = pendentes.filter(x => String(x["Board Column"]).trim().toLowerCase() === "hold");
+
+            // REGRA AJUSTADA: Desconsidera Hold, Release e Homologação com Done == 1
+            const pendentesAtivos = pendentes.filter(x => {
+                const boardCol = String(x["Board Column"] || "").trim().toLowerCase();
+                const isDoneFlag = String(x["Done"] || "").trim() === "1";
+
+                if (boardCol === "hold" || boardCol === "release") {
+                    return false;
+                }
+
+                if (boardCol.includes("homolog") && isDoneFlag) {
+                    return false;
+                }
+
+                return true;
+            });
 
             const totalAtivo = pendentesAtivos.length;
             const totalHold = emHold.length;
@@ -585,20 +600,20 @@
             const maxTotalSemana = Math.max(...totaisPorSemana, 0);
 
             datasetsSemana.push({
-				label: 'Total',
-				data: totaisPorSemana,
-				backgroundColor: 'transparent',
-				type: 'bar',
-				datalabels: {
-				align: 'center',
-				anchor: 'center',
-				color: '#212529',
-				font: { weight: 'bold', size: 12 },
-				formatter: function (value) {
-            return value > 0 ? value : '';
-					}
-				}
-			});
+                label: 'Total',
+                data: totaisPorSemana,
+                backgroundColor: 'transparent',
+                type: 'bar',
+                datalabels: {
+                    align: 'center',
+                    anchor: 'center',
+                    color: '#212529',
+                    font: { weight: 'bold', size: 12 },
+                    formatter: function (value) {
+                        return value > 0 ? value : '';
+                    }
+                }
+            });
 
             chartWeek = new Chart(document.getElementById("chartWeek"), {
                 type: 'bar',
@@ -674,8 +689,7 @@
                 }
             });
 
-			// --- GRÁFICO BURNDOWN FORECAST (HORAS ATIVAS) ---
-            // 1. Coleta e ordena as semanas com itens ativos
+            // --- GRÁFICO BURNDOWN FORECAST (HORAS ATIVAS) ---
             const semanasBurndownSet = new Set();
             dadosAtivos.forEach(d => {
                 const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
@@ -688,7 +702,6 @@
                 return numA - numB;
             });
 
-            // 2. Calcula as horas queimadas por semana e a linha de tendência (restante)
             let horasRestantes = horasTotais;
             const labelsBurndown = ['Início', ...semanasBurndownChaves.map(s => s.startsWith("W") ? s : "Sem. " + s)];
             const dadosBurndown = [horasTotais];
@@ -705,7 +718,6 @@
                 dadosBurndown.push(horasRestantes);
             });
 
-            // 3. Renderiza o gráfico de linha (Burndown)
             chartBurndown = new Chart(document.getElementById("chartBurndown"), {
                 type: 'line',
                 data: {
@@ -1057,7 +1069,7 @@
                 options: { responsive: true, plugins: { legend: { display: false }, ...desativarDataLabels } }
             });
 
-		// --- GRÁFICO DE RESPONSÁVEIS X STATUS (BOARD COLUMN) ---
+            // --- GRÁFICO DE RESPONSÁVEIS X STATUS (BOARD COLUMN) ---
             const responsaveisSet = new Set();
             dadosAtivos.forEach(d => {
                 const resp = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
@@ -1113,8 +1125,7 @@
                     }
                 }
             });
-			
-			// --- GRÁFICO DE RESPONSÁVEIS X STATUS (BOARD COLUMN) ---
+
             chartResponsavel = new Chart(document.getElementById("chartResponsavel"), {
                 type: 'bar',
                 data: {
