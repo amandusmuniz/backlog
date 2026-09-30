@@ -485,7 +485,7 @@
             // REGRA AJUSTADA: Desconsidera Hold, Release e Homologação com Done == 1
             const pendentesAtivos = pendentes.filter(x => {
                 const boardCol = String(x["Board Column"] || "").trim().toLowerCase();
-                const isDoneFlag = String(x["Done"] || "").trim() === "1";
+                const isDoneFlag = String(x["Board Column Done"] || "").trim() === "1";
 
                 if (boardCol === "hold" || boardCol === "release") {
                     return false;
