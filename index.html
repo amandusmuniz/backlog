@@ -506,7 +506,7 @@
             const desenvolvimento = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("desenvolv")).length;
             const release = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("release")).length;
             const impeditivos = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("imped")).length;
-            const proxSemana = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("proxim")).length;
+            const proxSemana = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("semana")).length;
 
             document.getElementById("kpiBacklog").innerText = totalAtivo;
             document.getElementById("kpiHold").innerText = totalHold;
