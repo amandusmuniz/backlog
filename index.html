@@ -506,15 +506,7 @@
             const desenvolvimento = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("desenvolv")).length;
             const release = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("release")).length;
             const impeditivos = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("imped")).length;
-
-            const numProxSemana = obterProximaSemanaRotulo();
-            proximaSemanaTexto = "W" + numProxSemana;
-
-            const proxSemana = pendentesAtivos.filter(x => {
-                const valWeek = String(x.Week || x.Semana || "").trim();
-                if (!valWeek) return false;
-                return valWeek.includes(String(numProxSemana)) || valWeek.toLowerCase().includes(proximaSemanaTexto.toLowerCase());
-            }).length;
+            const proxSemana = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("proxim")).length;
 
             document.getElementById("kpiBacklog").innerText = totalAtivo;
             document.getElementById("kpiHold").innerText = totalHold;
