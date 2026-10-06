@@ -87,6 +87,14 @@
             min-width: 100%;
         }
 
+        .chart-doughnut-wrapper {
+            position: relative;
+            max-height: 220px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
         .section {
             margin-top: 25px;
         }
@@ -257,7 +265,9 @@
             <div class="col-md-6">
                 <div class="chart-card">
                     <h5 class="fw-bold mb-3">Status Atual (Coluna)</h5>
-                    <canvas id="chartStatus" height="150"></canvas>
+                    <div class="chart-doughnut-wrapper">
+                        <canvas id="chartStatus"></canvas>
+                    </div>
                 </div>
             </div>
 
@@ -812,7 +822,7 @@
 
             const desativarDataLabels = { datalabels: { display: false } };
 
-            // --- GRÁFICO STATUS ATUAL (COLUNA) COM PORCENTAGEM ---
+            // --- GRÁFICO STATUS ATUAL (COLUNA) COM PORCENTAGEM (TAMANHO AJUSTADO) ---
             const status = agrupar(dadosAtivos, "Board Column");
             chartStatus = new Chart(document.getElementById("chartStatus"), {
                 type: 'doughnut',
@@ -824,11 +834,20 @@
                     }]
                 },
                 options: { 
-                    responsive: true, 
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1.8,
                     plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                boxWidth: 12,
+                                font: { size: 11 }
+                            }
+                        },
                         datalabels: {
                             color: '#ffffff',
-                            font: { weight: 'bold', size: 11 },
+                            font: { weight: 'bold', size: 10 },
                             formatter: function (value, context) {
                                 if (value === 0) return '';
                                 const dataset = context.chart.data.datasets[0].data;
