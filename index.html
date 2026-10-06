@@ -89,7 +89,7 @@
 
         .chart-doughnut-wrapper {
             position: relative;
-            max-height: 220px;
+            height: 260px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -822,7 +822,7 @@
 
             const desativarDataLabels = { datalabels: { display: false } };
 
-            // --- GRÁFICO STATUS ATUAL (COLUNA) COM PORCENTAGEM (TAMANHO AJUSTADO) ---
+            // --- GRÁFICO STATUS ATUAL (COLUNA) COM PORCENTAGEM (MEDIDA EQUILIBRADA) ---
             const status = agrupar(dadosAtivos, "Board Column");
             chartStatus = new Chart(document.getElementById("chartStatus"), {
                 type: 'doughnut',
@@ -835,8 +835,7 @@
                 },
                 options: { 
                     responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 1.8,
+                    maintainAspectRatio: false,
                     plugins: {
                         legend: {
                             position: 'right',
