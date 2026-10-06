@@ -214,34 +214,6 @@
             </div>
         </div>
 
-        <!-- Gráfico Compacto com Scroll (Horas por Semana por Analista) -->
-        <div class="row section">
-            <div class="col-12">
-                <div class="chart-card">
-                    <h5 class="fw-bold mb-3">⏱️ Total de Horas na Semana por Analista</h5>
-                    <div class="chart-scroll-container">
-                        <div id="chartHorasAnalistaWrapper" class="chart-scroll-wrapper">
-                            <canvas id="chartHorasAnalista"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Cards por Semana x Analista x Status -->
-        <div class="row section">
-            <div class="col-12">
-                <div class="chart-card">
-                    <h5 class="fw-bold mb-3">📊 Cards por Semana x Analista e Status</h5>
-                    <div class="chart-scroll-container">
-                        <div id="chartCardsAnalistaWrapper" class="chart-scroll-wrapper">
-                            <canvas id="chartCardsAnalista"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Semáforos Executivos -->
         <div class="row section">
             <div class="col-12">
@@ -361,7 +333,7 @@
     <script>
         Chart.register(ChartDataLabels);
 
-        let chartWeek, chartArea, chartStatus, chartPrioridade, chartResponsavel, chartBurndown, chartHorasAnalista, chartCardsAnalista;
+        let chartWeek, chartArea, chartStatus, chartPrioridade, chartResponsavel, chartBurndown;
         let dadosCompletos = [];
         let proximaSemanaTexto = "";
         const CAPACIDADE_MENSAL = 720;
@@ -450,8 +422,8 @@
         }
 
         function semaforo(valor) {
-            if (valor > 20) return "🔴";
-            if (valor > 10) return "🟡";
+            if (valor > 10) return "🔴";
+            if (valor > 5) return "🟡";
             return "🟢";
         }
 
@@ -462,8 +434,6 @@
             if (chartPrioridade) chartPrioridade.destroy();
             if (chartResponsavel) chartResponsavel.destroy();
             if (chartBurndown) chartBurndown.destroy();
-            if (chartHorasAnalista) chartHorasAnalista.destroy();
-            if (chartCardsAnalista) chartCardsAnalista.destroy();
         }
 
         function montarDashboard(dados) {
@@ -747,187 +717,6 @@
                 }
             });
 
-            // --- GRÁFICO DE HORAS NA SEMANA POR ANALISTA ---
-            const semanasHorasSet = new Set();
-            const analistasSet = new Set();
-
-            dadosAtivos.forEach(d => {
-                const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
-                const resp = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
-                if (w) {
-                    semanasHorasSet.add(w);
-                    analistasSet.add(resp);
-                }
-            });
-
-            const semanasHorasChaves = Array.from(semanasHorasSet).sort((a, b) => {
-                const numA = parseInt(a.replace(/\D/g, '')) || 0;
-                const numB = parseInt(b.replace(/\D/g, '')) || 0;
-                return numA - numB;
-            });
-
-            const listaAnalistas = Array.from(analistasSet).sort();
-
-            const wrapperHoras = document.getElementById('chartHorasAnalistaWrapper');
-            if (wrapperHoras) {
-                const minWidthHoras = Math.max(semanasHorasChaves.length * (listaAnalistas.length * 20 + 30), 600);
-                wrapperHoras.style.minWidth = minWidthHoras + 'px';
-            }
-
-            const datasetsHorasAnalista = listaAnalistas.map((analista, idx) => {
-                const horasPorSemana = semanasHorasChaves.map(semana => {
-                    return dadosAtivos
-                        .filter(d => {
-                            const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
-                            const resp = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
-                            return w === semana && resp === analista;
-                        })
-                        .reduce((sum, item) => sum + (Number(item.Hour) || 0), 0);
-                });
-
-                return {
-                    label: analista,
-                    data: horasPorSemana,
-                    backgroundColor: PALETA_CORES[idx % PALETA_CORES.length]
-                };
-            });
-
-            chartHorasAnalista = new Chart(document.getElementById("chartHorasAnalista"), {
-                type: 'bar',
-                data: {
-                    labels: semanasHorasChaves.map(s => s.startsWith("W") ? s : "Sem. " + s),
-                    datasets: datasetsHorasAnalista
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    layout: { padding: { top: 20, bottom: 5 } },
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: { boxWidth: 12, font: { size: 11 } }
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.dataset.label}: ${context.raw}h`;
-                                }
-                            }
-                        },
-                        datalabels: {
-                            color: '#000000',
-                            anchor: 'end',
-                            align: 'top',
-                            font: { weight: 'bold', size: 9 },
-                            formatter: function (value) { return value > 0 ? value + 'h' : ''; }
-                        }
-                    },
-                    scales: {
-                        x: { stacked: false },
-                        y: { 
-                            stacked: false, 
-                            beginAtZero: true,
-                            title: { display: true, text: 'Horas Total' }
-                        }
-                    }
-                }
-            });
-
-            // --- CARDS POR SEMANA X ANALISTA E STATUS ---
-            const wrapperCardsAnalista = document.getElementById('chartCardsAnalistaWrapper');
-            if (wrapperCardsAnalista) {
-                const minWidthCards = Math.max(semanasHorasChaves.length * (listaAnalistas.length * 25 + 30), 600);
-                wrapperCardsAnalista.style.minWidth = minWidthCards + 'px';
-            }
-
-            const datasetsCardsAnalista = listaAnalistas.map((analista, idx) => {
-                const cardsPorSemana = semanasHorasChaves.map(semana => {
-                    return dadosAtivos.filter(d => {
-                        const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
-                        const resp = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
-                        return w === semana && resp === analista;
-                    }).length;
-                });
-
-                return {
-                    label: analista,
-                    data: cardsPorSemana,
-                    backgroundColor: PALETA_CORES[idx % PALETA_CORES.length]
-                };
-            });
-
-            chartCardsAnalista = new Chart(document.getElementById("chartCardsAnalista"), {
-                type: 'bar',
-                data: {
-                    labels: semanasHorasChaves.map(s => s.startsWith("W") ? s : "Sem. " + s),
-                    datasets: datasetsCardsAnalista
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    layout: { padding: { top: 20, bottom: 5 } },
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: { boxWidth: 12, font: { size: 11 } }
-                        },
-                        tooltip: {
-                            mode: 'nearest',
-                            intersect: true,
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.dataset.label}: ${context.raw} card(s)`;
-                                },
-                                footer: function(tooltipItems) {
-                                    if (!tooltipItems.length) return '';
-                                    const item = tooltipItems[0];
-                                    const semanaSel = semanasHorasChaves[item.dataIndex];
-                                    const analistaSel = item.dataset.label;
-
-                                    const cardsDoAnalista = dadosAtivos.filter(d => {
-                                        const w = d.Week !== undefined && d.Week !== "" ? String(d.Week).trim() : "";
-                                        const resp = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
-                                        return w === semanaSel && resp === analistaSel;
-                                    });
-
-                                    if (!cardsDoAnalista.length) return '';
-
-                                    const contagemStatus = {};
-                                    cardsDoAnalista.forEach(d => {
-                                        const st = d["Board Column"] ? String(d["Board Column"]).trim() : "Sem Status";
-                                        contagemStatus[st] = (contagemStatus[st] || 0) + 1;
-                                    });
-
-                                    let linhasFooter = ['\nStatus dos Cards:'];
-                                    for (const [st, qtd] of Object.entries(contagemStatus)) {
-                                        linhasFooter.push(`• ${st}: ${qtd}`);
-                                    }
-                                    return linhasFooter.join('\n');
-                                }
-                            }
-                        },
-                        datalabels: {
-                            color: '#000000',
-                            anchor: 'end',
-                            align: 'top',
-                            font: { weight: 'bold', size: 9 },
-                            formatter: function (value) { return value > 0 ? value : ''; }
-                        }
-                    },
-                    scales: {
-                        x: { stacked: false },
-                        y: { 
-                            stacked: false, 
-                            beginAtZero: true,
-                            title: { display: true, text: 'Qtd. Cards' },
-                            ticks: { precision: 0 }
-                        }
-                    }
-                }
-            });
-
             // --- GRÁFICO ÁREA X PRIORIDADE ---
             const areasSet = new Set();
             dadosAtivos.forEach(d => {
@@ -1023,6 +812,7 @@
 
             const desativarDataLabels = { datalabels: { display: false } };
 
+            // --- GRÁFICO STATUS ATUAL (COLUNA) COM PORCENTAGEM ---
             const status = agrupar(dadosAtivos, "Board Column");
             chartStatus = new Chart(document.getElementById("chartStatus"), {
                 type: 'doughnut',
@@ -1033,7 +823,22 @@
                         backgroundColor: ['#0d6efd', '#ffc107', '#6f42c1', '#dc3545', '#198754', '#0dcaf0', '#fd7e14']
                     }]
                 },
-                options: { responsive: true, plugins: { ...desativarDataLabels } }
+                options: { 
+                    responsive: true, 
+                    plugins: {
+                        datalabels: {
+                            color: '#ffffff',
+                            font: { weight: 'bold', size: 11 },
+                            formatter: function (value, context) {
+                                if (value === 0) return '';
+                                const dataset = context.chart.data.datasets[0].data;
+                                const total = dataset.reduce((acc, val) => acc + val, 0);
+                                const percentage = ((value / total) * 100).toFixed(1) + '%';
+                                return `${value} (${percentage})`;
+                            }
+                        }
+                    } 
+                }
             });
 
             const prioridade = agrupar(dadosAtivos, "Priority");
