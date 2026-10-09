@@ -196,7 +196,7 @@
         <div class="row section g-4" id="chartsSection" style="display: none;">
             <div class="col-md-6">
                 <div class="chart-card">
-                    <h5 class="fw-bold mb-3">Status das Entregas por Departamento (State - Departament)</h5>
+                    <h5 class="fw-bold mb-3">Status das Entregas por Departamento (Doing / Done)</h5>
                     <div class="chart-container-wrapper">
                         <canvas id="chartStatus"></canvas>
                     </div>
@@ -297,10 +297,6 @@
         let chartEvolucaoInstance = null;
         let chartTipoInstance = null;
         let chartResponsavelInstance = null;
-
-        const PALETA_CORES = [
-            '#198754', '#0d6efd', '#ffc107', '#dc3545', '#6c757d', '#6f42c1', '#0dcaf0', '#fd7e14', '#20c997', '#d63384'
-        ];
 
         document.addEventListener('DOMContentLoaded', () => {
             loadAutoExcel();
@@ -411,7 +407,7 @@
             let total = data.length;
             let concluidos = 0;
             let emAndamento = 0;
-            let statusDeptCount = {};
+            let deptStatusMap = {};
             let tipoCount = {};
             let respCount = {};
             let mensalCount = {};
@@ -429,15 +425,17 @@
                 const closedDateRaw = item['Closed Date'] || item['Closed date'];
                 const createdDateRaw = item['Created Date'] || item['Created date'];
 
-                if (state) {
-                    const statusDeptLabel = `${state} - ${dept}`;
-                    statusDeptCount[statusDeptLabel] = (statusDeptCount[statusDeptLabel] || 0) + 1;
+                if (!deptStatusMap[dept]) {
+                    deptStatusMap[dept] = { doing: 0, done: 0 };
                 }
 
-                if (state.toLowerCase() === 'done' || state.toLowerCase() === 'concluído' || state.toLowerCase() === 'finalizado') {
+                const stateLower = state.toLowerCase();
+                if (stateLower === 'done' || stateLower === 'concluído' || stateLower === 'finalizado') {
                     concluidos++;
+                    deptStatusMap[dept].done++;
                 } else {
                     emAndamento++;
+                    deptStatusMap[dept].doing++;
                 }
 
                 if (createdDateRaw && closedDateRaw) {
@@ -492,7 +490,7 @@
             document.getElementById('kpiEmAndamento').innerText = emAndamento;
             document.getElementById('kpiLeadTime').innerText = leadTimeMediano;
 
-            renderCharts(statusDeptCount, mensalCount, tipoCount, respCount);
+            renderCharts(deptStatusMap, mensalCount, tipoCount, respCount);
         }
 
         // Popula os seletores de filtros na área da tabela
@@ -711,7 +709,7 @@
             }
         }
 
-        function renderCharts(statusData, mensalData, tipoData, respData) {
+        function renderCharts(deptStatusData, mensalData, tipoData, respData) {
             if (chartStatusInstance) chartStatusInstance.destroy();
             if (chartEvolucaoInstance) chartEvolucaoInstance.destroy();
             if (chartTipoInstance) chartTipoInstance.destroy();
@@ -722,26 +720,39 @@
                 maintainAspectRatio: false
             };
 
-            // 1. Chart Status (Bar) - State - Departament
+            // 1. Chart Status (Barra Empilhada) - Doing e Done agrupados por Departamento
+            const depts = Object.keys(deptStatusData).sort();
             chartStatusInstance = new Chart(document.getElementById('chartStatus'), {
                 type: 'bar',
                 data: {
-                    labels: Object.keys(statusData),
-                    datasets: [{
-                        label: 'Quantidade de Entregas',
-                        data: Object.values(statusData),
-                        backgroundColor: PALETA_CORES
-                    }]
+                    labels: depts,
+                    datasets: [
+                        {
+                            label: 'Doing (Em Andamento)',
+                            data: depts.map(d => deptStatusData[d].doing),
+                            backgroundColor: '#ffc107'
+                        },
+                        {
+                            label: 'Done (Concluídos)',
+                            data: depts.map(d => deptStatusData[d].done),
+                            backgroundColor: '#198754'
+                        }
+                    ]
                 },
                 options: {
                     ...commonOptions,
                     plugins: {
                         legend: {
-                            display: false
+                            display: true,
+                            position: 'top'
                         }
                     },
                     scales: {
+                        x: {
+                            stacked: true
+                        },
                         y: {
+                            stacked: true,
                             beginAtZero: true,
                             ticks: {
                                 precision: 0
