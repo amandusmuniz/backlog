@@ -722,12 +722,13 @@
                 maintainAspectRatio: false
             };
 
-            // 1. Chart Status (Doughnut) - State - Departament
+            // 1. Chart Status (Bar) - State - Departament
             chartStatusInstance = new Chart(document.getElementById('chartStatus'), {
-                type: 'doughnut',
+                type: 'bar',
                 data: {
                     labels: Object.keys(statusData),
                     datasets: [{
+                        label: 'Quantidade de Entregas',
                         data: Object.values(statusData),
                         backgroundColor: PALETA_CORES
                     }]
@@ -736,8 +737,15 @@
                     ...commonOptions,
                     plugins: {
                         legend: {
-                            position: 'bottom',
-                            labels: { boxWidth: 12, padding: 15 }
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
                         }
                     }
                 }
