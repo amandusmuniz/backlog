@@ -69,7 +69,6 @@
             flex-direction: column;
         }
 
-        /* Envolvente para manter a proporção e altura uniforme de todos os gráficos */
         .chart-container-wrapper {
             position: relative;
             width: 100%;
@@ -85,7 +84,6 @@
             overflow-y: auto;
         }
 
-        /* Estilização da ordenação da tabela */
         th.sortable {
             cursor: pointer;
             user-select: none;
@@ -117,7 +115,6 @@
                 <div class="text-white text-end lh-sm small">
                     <div id="fileUpdateInfo">📄 Status: <b>Carregando dados...</b></div>
                 </div>
-                <!-- Botão para voltar ao Dashboard Principal -->
                 <a href="index.html" class="btn btn-outline-light btn-sm fw-bold">
                     ⬅️ Ver Backlog Pendente
                 </a>
@@ -231,7 +228,7 @@
             </div>
         </div>
 
-        <!-- Tabela de Registros ao Clicar no KPI -->
+        <!-- Tabela de Registros com Filtros -->
         <div class="row section" id="detailsSection" style="display: none;">
             <div class="col-12">
                 <div class="chart-card">
@@ -379,6 +376,7 @@
 
             currentFilteredData = [...rawData];
             processData(currentFilteredData);
+            updateTableSelection(currentFilteredData, '📋 Registros: Todos os Dados');
         }
 
         function applyFilters() {
@@ -402,11 +400,12 @@
                 return true;
             });
 
-            // Oculta tabela de detalhes ao aplicar novos filtros de data
-            document.getElementById('detailsSection').style.display = 'none';
             document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
 
             processData(currentFilteredData);
+
+            // Atualiza os registros listados na tabela para refletir o filtro de data aplicado
+            updateTableSelection(currentFilteredData, '📋 Registros Filtrados por Data');
         }
 
         function processData(data) {
@@ -478,7 +477,6 @@
                 }
             });
 
-            // Cálculo da Mediana
             let leadTimeMediano = "N/A";
             if (leadTimeValues.length > 0) {
                 leadTimeValues.sort((a, b) => a - b);
@@ -499,7 +497,6 @@
             renderCharts(deptStatusMap, mensalCount, tipoCount, respCount);
         }
 
-        // Popula os seletores de filtros na área da tabela
         function populateTableFilters(records) {
             const stateSelect = document.getElementById('tableStateSelect');
             const typeSelect = document.getElementById('tableTypeSelect');
@@ -536,7 +533,6 @@
             document.getElementById('tableSearchInput').value = '';
         }
 
-        // Aplica os filtros da tabela de detalhes
         function applyTableFilters() {
             const searchValue = document.getElementById('tableSearchInput').value.toLowerCase().trim();
             const selectedState = document.getElementById('tableStateSelect').value;
@@ -561,7 +557,6 @@
             renderDetailsTable(displayedRecords);
         }
 
-        // Atualiza a tabela com os registros selecionados a partir de um clique de KPI ou Gráfico
         function updateTableSelection(records, title) {
             currentKpiRecords = [...records];
             displayedRecords = [...records];
@@ -576,10 +571,8 @@
 
             const detailsSec = document.getElementById('detailsSection');
             detailsSec.style.display = 'block';
-            detailsSec.scrollIntoView({ behavior: 'smooth' });
         }
 
-        // Função chamada ao clicar em um Card KPI
         function filterByKpi(type) {
             document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
 
@@ -618,85 +611,9 @@
             }
 
             updateTableSelection(records, title);
+            document.getElementById('detailsSection').scrollIntoView({ behavior: 'smooth' });
         }
 
-        // Aplica os filtros da tabela de detalhes
-        function applyTableFilters() {
-            const searchValue = document.getElementById('tableSearchInput').value.toLowerCase().trim();
-            const selectedState = document.getElementById('tableStateSelect').value;
-            const selectedDept = document.getElementById('tableDeptSelect').value;
-
-            displayedRecords = currentKpiRecords.filter(item => {
-                const idStr = String(item['ID'] || '').toLowerCase();
-                const titleStr = String(item['Title'] || item['Título'] || '').toLowerCase();
-                const stateStr = String(item['State'] || '').trim();
-                const deptStr = String(item['Departament'] || item['Department'] || item['Departamento'] || item['Area'] || item['Área'] || '').trim();
-
-                const matchesSearch = !searchValue || idStr.includes(searchValue) || titleStr.includes(searchValue);
-                const matchesState = !selectedState || stateStr === selectedState;
-                const matchesDept = !selectedDept || deptStr === selectedDept;
-
-                return matchesSearch && matchesState && matchesDept;
-            });
-
-            renderDetailsTable(displayedRecords);
-        }
-
-        // Função chamada ao clicar em um Card KPI
-        function filterByKpi(type) {
-            document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
-
-            let records = [];
-            let title = '';
-
-            if (type === 'total') {
-                document.getElementById('kpiCardTotal').classList.add('active-kpi');
-                records = currentFilteredData;
-                title = '📋 Registros: Total de Tarefas';
-            } else if (type === 'concluidos') {
-                document.getElementById('kpiCardConcluidos').classList.add('active-kpi');
-                records = currentFilteredData.filter(item => {
-                    const st = String(item['State'] || '').toLowerCase();
-                    return st === 'done' || st === 'concluído' || st === 'finalizado';
-                });
-                title = '✅ Registros: Entregas / Concluídos';
-            } else if (type === 'emandamento') {
-                document.getElementById('kpiCardEmAndamento').classList.add('active-kpi');
-                records = currentFilteredData.filter(item => {
-                    const st = String(item['State'] || '').toLowerCase();
-                    return st !== 'done' && st !== 'concluído' && st !== 'finalizado';
-                });
-                title = '⏳ Registros: Em Andamento';
-            } else if (type === 'leadtime') {
-                document.getElementById('kpiCardLeadTime').classList.add('active-kpi');
-                records = currentFilteredData.filter(item => {
-                    const createdDateRaw = item['Created Date'] || item['Created date'];
-                    const closedDateRaw = item['Closed Date'] || item['Closed date'];
-                    if (!createdDateRaw || !closedDateRaw) return false;
-                    const cDate = new Date(createdDateRaw);
-                    const fDate = new Date(closedDateRaw);
-                    return !isNaN(cDate.getTime()) && !isNaN(fDate.getTime()) && (fDate >= cDate);
-                });
-                title = '⏱️ Registros: Com Cálculo de Lead Time Válido';
-            }
-
-            currentKpiRecords = [...records];
-            displayedRecords = [...records];
-            currentSortColumn = '';
-            currentSortAsc = true;
-            resetSortIcons();
-
-            populateTableFilters(currentKpiRecords);
-
-            document.getElementById('tableTitle').innerText = title;
-            renderDetailsTable(displayedRecords);
-
-            const detailsSec = document.getElementById('detailsSection');
-            detailsSec.style.display = 'block';
-            detailsSec.scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // Função de ordenação ao clicar no cabeçalho
         function sortTable(column) {
             if (!displayedRecords.length) return;
 
@@ -761,7 +678,6 @@
             });
         }
 
-        // Renderiza os dados filtrados na tabela inferior
         function renderDetailsTable(records) {
             const tableBody = document.getElementById('detailsTableBody');
             tableBody.innerHTML = '';
@@ -819,7 +735,7 @@
                 maintainAspectRatio: false
             };
 
-            // 1. Chart Status (Barra Empilhada) - Doing e Done agrupados por Departamento
+            // 1. Chart Status
             const depts = Object.keys(deptStatusData).sort();
             chartStatusInstance = new Chart(document.getElementById('chartStatus'), {
                 type: 'bar',
@@ -845,7 +761,7 @@
                             const index = activeElements[0].index;
                             const datasetIndex = activeElements[0].datasetIndex;
                             const selectedDept = depts[index];
-                            const isDone = datasetIndex === 1; // 0 = Doing, 1 = Done
+                            const isDone = datasetIndex === 1;
 
                             const records = currentFilteredData.filter(item => {
                                 const dept = String(item['Departament'] || item['Department'] || item['Departamento'] || item['Area'] || item['Área'] || 'Sem Depto').trim();
@@ -858,26 +774,20 @@
                             document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
                             const statusLabel = isDone ? 'Done / Concluído' : 'Doing / Em Andamento';
                             updateTableSelection(records, `📊 Registros do Gráfico: ${selectedDept} (${statusLabel})`);
+                            document.getElementById('detailsSection').scrollIntoView({ behavior: 'smooth' });
                         }
                     },
                     plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top'
-                        }
+                        legend: { display: true, position: 'top' }
                     },
                     scales: {
                         x: { stacked: true },
-                        y: {
-                            stacked: true,
-                            beginAtZero: true,
-                            ticks: { precision: 0 }
-                        }
+                        y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
                     }
                 }
             });
 
-            // 2. Chart Evolução (Line)
+            // 2. Chart Evolução
             const sortedMonths = Object.keys(mensalData).sort();
             chartEvolucaoInstance = new Chart(document.getElementById('chartEvolucao'), {
                 type: 'line',
@@ -910,12 +820,13 @@
 
                             document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
                             updateTableSelection(records, `📅 Registros Mês: ${selectedMonth}`);
+                            document.getElementById('detailsSection').scrollIntoView({ behavior: 'smooth' });
                         }
                     }
                 }
             });
 
-            // 3. Chart Tipo (Bar)
+            // 3. Chart Tipo
             const tipoKeys = Object.keys(tipoData);
             chartTipoInstance = new Chart(document.getElementById('chartTipo'), {
                 type: 'bar',
@@ -941,12 +852,13 @@
 
                             document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
                             updateTableSelection(records, `🏷️ Registros por Tipo: ${selectedType}`);
+                            document.getElementById('detailsSection').scrollIntoView({ behavior: 'smooth' });
                         }
                     }
                 }
             });
 
-            // 4. Chart Responsável (Horizontal Bar)
+            // 4. Chart Responsável
             const respKeys = Object.keys(respData);
             chartResponsavelInstance = new Chart(document.getElementById('chartResponsavel'), {
                 type: 'bar',
@@ -975,13 +887,11 @@
 
                             document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
                             updateTableSelection(records, `👤 Registros por Responsável: ${selectedResp}`);
+                            document.getElementById('detailsSection').scrollIntoView({ behavior: 'smooth' });
                         }
                     },
                     scales: {
-                        x: {
-                            beginAtZero: true,
-                            ticks: { precision: 0 }
-                        }
+                        x: { beginAtZero: true, ticks: { precision: 0 } }
                     }
                 }
             });
