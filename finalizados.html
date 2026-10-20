@@ -242,17 +242,23 @@
 
                     <!-- Filtros Internos da Tabela -->
                     <div class="row g-2 mb-3 bg-light p-2 rounded border">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label for="tableSearchInput" class="form-label form-label-sm fw-bold text-muted mb-1">Buscar (ID ou Título):</label>
                             <input type="text" id="tableSearchInput" class="form-control form-control-sm" placeholder="Digite para buscar..." oninput="applyTableFilters()">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label for="tableStateSelect" class="form-label form-label-sm fw-bold text-muted mb-1">Filtrar por State:</label>
                             <select id="tableStateSelect" class="form-select form-select-sm" onchange="applyTableFilters()">
                                 <option value="">Todos os States</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
+                            <label for="tableTypeSelect" class="form-label form-label-sm fw-bold text-muted mb-1">Filtrar por Tipo:</label>
+                            <select id="tableTypeSelect" class="form-select form-select-sm" onchange="applyTableFilters()">
+                                <option value="">Todos os Tipos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
                             <label for="tableDeptSelect" class="form-label form-label-sm fw-bold text-muted mb-1">Filtrar por Departamento:</label>
                             <select id="tableDeptSelect" class="form-select form-select-sm" onchange="applyTableFilters()">
                                 <option value="">Todos os Departamentos</option>
@@ -496,15 +502,19 @@
         // Popula os seletores de filtros na área da tabela
         function populateTableFilters(records) {
             const stateSelect = document.getElementById('tableStateSelect');
+            const typeSelect = document.getElementById('tableTypeSelect');
             const deptSelect = document.getElementById('tableDeptSelect');
 
             const states = new Set();
+            const types = new Set();
             const depts = new Set();
 
             records.forEach(item => {
                 const st = String(item['State'] || '').trim();
+                const tp = String(item['Type'] || item['Work Item Type'] || '').trim();
                 const dp = String(item['Departament'] || item['Department'] || item['Departamento'] || item['Area'] || item['Área'] || '').trim();
                 if (st) states.add(st);
+                if (tp) types.add(tp);
                 if (dp) depts.add(dp);
             });
 
@@ -513,12 +523,101 @@
                 stateSelect.innerHTML += `<option value="${st}">${st}</option>`;
             });
 
+            typeSelect.innerHTML = '<option value="">Todos os Tipos</option>';
+            Array.from(types).sort().forEach(tp => {
+                typeSelect.innerHTML += `<option value="${tp}">${tp}</option>`;
+            });
+
             deptSelect.innerHTML = '<option value="">Todos os Departamentos</option>';
             Array.from(depts).sort().forEach(dp => {
                 deptSelect.innerHTML += `<option value="${dp}">${dp}</option>`;
             });
 
             document.getElementById('tableSearchInput').value = '';
+        }
+
+        // Aplica os filtros da tabela de detalhes
+        function applyTableFilters() {
+            const searchValue = document.getElementById('tableSearchInput').value.toLowerCase().trim();
+            const selectedState = document.getElementById('tableStateSelect').value;
+            const selectedType = document.getElementById('tableTypeSelect').value;
+            const selectedDept = document.getElementById('tableDeptSelect').value;
+
+            displayedRecords = currentKpiRecords.filter(item => {
+                const idStr = String(item['ID'] || '').toLowerCase();
+                const titleStr = String(item['Title'] || item['Título'] || '').toLowerCase();
+                const stateStr = String(item['State'] || '').trim();
+                const typeStr = String(item['Type'] || item['Work Item Type'] || '').trim();
+                const deptStr = String(item['Departament'] || item['Department'] || item['Departamento'] || item['Area'] || item['Área'] || '').trim();
+
+                const matchesSearch = !searchValue || idStr.includes(searchValue) || titleStr.includes(searchValue);
+                const matchesState = !selectedState || stateStr === selectedState;
+                const matchesType = !selectedType || typeStr === selectedType;
+                const matchesDept = !selectedDept || deptStr === selectedDept;
+
+                return matchesSearch && matchesState && matchesType && matchesDept;
+            });
+
+            renderDetailsTable(displayedRecords);
+        }
+
+        // Atualiza a tabela com os registros selecionados a partir de um clique de KPI ou Gráfico
+        function updateTableSelection(records, title) {
+            currentKpiRecords = [...records];
+            displayedRecords = [...records];
+            currentSortColumn = '';
+            currentSortAsc = true;
+            resetSortIcons();
+
+            populateTableFilters(currentKpiRecords);
+
+            document.getElementById('tableTitle').innerText = title;
+            renderDetailsTable(displayedRecords);
+
+            const detailsSec = document.getElementById('detailsSection');
+            detailsSec.style.display = 'block';
+            detailsSec.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Função chamada ao clicar em um Card KPI
+        function filterByKpi(type) {
+            document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
+
+            let records = [];
+            let title = '';
+
+            if (type === 'total') {
+                document.getElementById('kpiCardTotal').classList.add('active-kpi');
+                records = currentFilteredData;
+                title = '📋 Registros: Total de Tarefas';
+            } else if (type === 'concluidos') {
+                document.getElementById('kpiCardConcluidos').classList.add('active-kpi');
+                records = currentFilteredData.filter(item => {
+                    const st = String(item['State'] || '').toLowerCase();
+                    return st === 'done' || st === 'concluído' || st === 'finalizado';
+                });
+                title = '✅ Registros: Entregas / Concluídos';
+            } else if (type === 'emandamento') {
+                document.getElementById('kpiCardEmAndamento').classList.add('active-kpi');
+                records = currentFilteredData.filter(item => {
+                    const st = String(item['State'] || '').toLowerCase();
+                    return st !== 'done' && st !== 'concluído' && st !== 'finalizado';
+                });
+                title = '⏳ Registros: Em Andamento';
+            } else if (type === 'leadtime') {
+                document.getElementById('kpiCardLeadTime').classList.add('active-kpi');
+                records = currentFilteredData.filter(item => {
+                    const createdDateRaw = item['Created Date'] || item['Created date'];
+                    const closedDateRaw = item['Closed Date'] || item['Closed date'];
+                    if (!createdDateRaw || !closedDateRaw) return false;
+                    const cDate = new Date(createdDateRaw);
+                    const fDate = new Date(closedDateRaw);
+                    return !isNaN(cDate.getTime()) && !isNaN(fDate.getTime()) && (fDate >= cDate);
+                });
+                title = '⏱️ Registros: Com Cálculo de Lead Time Válido';
+            }
+
+            updateTableSelection(records, title);
         }
 
         // Aplica os filtros da tabela de detalhes
@@ -741,6 +840,26 @@
                 },
                 options: {
                     ...commonOptions,
+                    onClick: (event, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const datasetIndex = activeElements[0].datasetIndex;
+                            const selectedDept = depts[index];
+                            const isDone = datasetIndex === 1; // 0 = Doing, 1 = Done
+
+                            const records = currentFilteredData.filter(item => {
+                                const dept = String(item['Departament'] || item['Department'] || item['Departamento'] || item['Area'] || item['Área'] || 'Sem Depto').trim();
+                                const stateLower = String(item['State'] || '').trim().toLowerCase();
+                                const itemIsDone = (stateLower === 'done' || stateLower === 'concluído' || stateLower === 'finalizado');
+
+                                return dept === selectedDept && (isDone ? itemIsDone : !itemIsDone);
+                            });
+
+                            document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
+                            const statusLabel = isDone ? 'Done / Concluído' : 'Doing / Em Andamento';
+                            updateTableSelection(records, `📊 Registros do Gráfico: ${selectedDept} (${statusLabel})`);
+                        }
+                    },
                     plugins: {
                         legend: {
                             display: true,
@@ -748,15 +867,11 @@
                         }
                     },
                     scales: {
-                        x: {
-                            stacked: true
-                        },
+                        x: { stacked: true },
                         y: {
                             stacked: true,
                             beginAtZero: true,
-                            ticks: {
-                                precision: 0
-                            }
+                            ticks: { precision: 0 }
                         }
                     }
                 }
@@ -777,28 +892,66 @@
                         tension: 0.3
                     }]
                 },
-                options: commonOptions
+                options: {
+                    ...commonOptions,
+                    onClick: (event, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const selectedMonth = sortedMonths[index];
+
+                            const records = currentFilteredData.filter(item => {
+                                const closedDateRaw = item['Closed Date'] || item['Closed date'];
+                                if (!closedDateRaw) return false;
+                                const d = new Date(closedDateRaw);
+                                if (isNaN(d.getTime())) return false;
+                                const mesAno = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                                return mesAno === selectedMonth;
+                            });
+
+                            document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
+                            updateTableSelection(records, `📅 Registros Mês: ${selectedMonth}`);
+                        }
+                    }
+                }
             });
 
             // 3. Chart Tipo (Bar)
+            const tipoKeys = Object.keys(tipoData);
             chartTipoInstance = new Chart(document.getElementById('chartTipo'), {
                 type: 'bar',
                 data: {
-                    labels: Object.keys(tipoData),
+                    labels: tipoKeys,
                     datasets: [{
                         label: 'Quantidade por Tipo',
                         data: Object.values(tipoData),
                         backgroundColor: '#0d6efd'
                     }]
                 },
-                options: commonOptions
+                options: {
+                    ...commonOptions,
+                    onClick: (event, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const selectedType = tipoKeys[index];
+
+                            const records = currentFilteredData.filter(item => {
+                                const tipo = String(item['Type'] || item['Work Item Type'] || 'Outros').trim();
+                                return tipo === selectedType;
+                            });
+
+                            document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
+                            updateTableSelection(records, `🏷️ Registros por Tipo: ${selectedType}`);
+                        }
+                    }
+                }
             });
 
             // 4. Chart Responsável (Horizontal Bar)
+            const respKeys = Object.keys(respData);
             chartResponsavelInstance = new Chart(document.getElementById('chartResponsavel'), {
                 type: 'bar',
                 data: {
-                    labels: Object.keys(respData),
+                    labels: respKeys,
                     datasets: [{
                         label: 'Itens Atribuídos',
                         data: Object.values(respData),
@@ -808,12 +961,26 @@
                 options: {
                     ...commonOptions,
                     indexAxis: 'y',
+                    onClick: (event, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const selectedResp = respKeys[index];
+
+                            const records = currentFilteredData.filter(item => {
+                                const rawResp = item['Assigned To'] || item['AssignedTo'] || item['Atribuído a'] || item['Responsável'] || 'Não Atribuído';
+                                let resp = String(rawResp).split('<')[0].trim();
+                                if (!resp) resp = 'Não Atribuído';
+                                return resp === selectedResp;
+                            });
+
+                            document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
+                            updateTableSelection(records, `👤 Registros por Responsável: ${selectedResp}`);
+                        }
+                    },
                     scales: {
                         x: {
                             beginAtZero: true,
-                            ticks: {
-                                precision: 0
-                            }
+                            ticks: { precision: 0 }
                         }
                     }
                 }
