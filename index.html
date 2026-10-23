@@ -172,10 +172,10 @@
             </div>
 
             <div class="col">
-                <div class="card card-kpi" onclick="filtrarPorKPI('RELEASE', this)">
+                <div class="card card-kpi" onclick="filtrarPorKPI('PENDENTES', this)">
                     <div class="card-body text-center p-2">
-                        <h6 class="text-muted small mb-1">Release</h6>
-                        <div id="kpiRelease" class="kpi" style="color: #6f42c1;">0</div>
+                        <h6 class="text-muted small mb-1">Pendentes</h6>
+                        <div id="kpiPendentes" class="kpi" style="color: #6f42c1;">0</div>
                     </div>
                 </div>
             </div>
@@ -264,7 +264,7 @@
 
             <div class="col-md-6">
                 <div class="chart-card">
-                    <h5 class="fw-bold mb-3">Status Atual (Coluna)</h5>
+                    <h5 class="fw-bold mb-3">Status Atual (Cards)</h5>
                     <div class="chart-doughnut-wrapper">
                         <canvas id="chartStatus"></canvas>
                     </div>
@@ -372,7 +372,6 @@
             document.getElementById("statusSincronizacao").innerHTML = `🕒 Última Busca: <b>${horaBusca}</b> (Buscando...)`;
 
             try {
-                // Adiciona parâmetro de versão/timestamp para evitar cache estático no navegador
                 const response = await fetch(URL_ARQUIVO_LOCAL + "?v=" + new Date().getTime());
                 
                 if (!response.ok) {
@@ -451,7 +450,6 @@
 
             const emHold = pendentes.filter(x => String(x["Board Column"]).trim().toLowerCase() === "hold");
 
-            // REGRA AJUSTADA: Desconsidera Hold, Release e Homologação com Done == 1
             const pendentesAtivos = pendentes.filter(x => {
                 const boardCol = String(x["Board Column"] || "").trim().toLowerCase();
                 const isDoneFlag = String(x["Board Column Done"] || "").trim() === "1";
@@ -471,17 +469,23 @@
             const totalHold = emHold.length;
             const horas = pendentesAtivos.reduce((s, x) => s + (Number(x.Hour) || 0), 0);
 
-            const homologacao = 	pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("homolog")).length;
+            const homologacao = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("homolog")).length;
             const desenvolvimento = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("desenvolv")).length;
-            const release = 		pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("release")).length;
-            const impeditivos = 	pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("imped")).length;
-            const proxSemana = 		pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("previs")).length;
+            
+            // FILTRAGEM ALTERADA: Pendentes (Board Column igual a Backlog, Análise ou Aprovado)
+            const numPendentes = pendentesAtivos.filter(x => {
+                const col = String(x["Board Column"] || "").trim().toLowerCase();
+                return col === "backlog" || col === "análise" || col === "analise" || col === "aprovado";
+            }).length;
+
+            const impeditivos = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("imped")).length;
+            const proxSemana = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("previs")).length;
 
             document.getElementById("kpiBacklog").innerText = totalAtivo;
             document.getElementById("kpiHold").innerText = totalHold;
             document.getElementById("kpiHomologacao").innerText = homologacao;
             document.getElementById("kpiDev").innerText = desenvolvimento;
-            document.getElementById("kpiRelease").innerText = release;
+            document.getElementById("kpiPendentes").innerText = numPendentes;
             document.getElementById("kpiImpeditivos").innerText = impeditivos;
             document.getElementById("kpiProxSemana").innerText = proxSemana;
 
@@ -822,7 +826,7 @@
 
             const desativarDataLabels = { datalabels: { display: false } };
 
-            // --- GRÁFICO STATUS ATUAL (COLUNA) COM PORCENTAGEM (MEDIDA EQUILIBRADA) ---
+            // --- GRÁFICO STATUS ATUAL (COLUNA) COM PORCENTAGEM ---
             const status = agrupar(dadosAtivos, "Board Column");
             chartStatus = new Chart(document.getElementById("chartStatus"), {
                 type: 'doughnut',
@@ -873,7 +877,7 @@
                 options: { responsive: true, plugins: { legend: { display: false }, ...desativarDataLabels } }
             });
 
-            // --- GRÁFICO DE RESPONSÁVEIS X STATUS (BOARD COLUMN) ---
+            // --- GRÁFICO DE RESPONSÁVEIS X STATUS ---
             const responsaveisSet = new Set();
             dadosAtivos.forEach(d => {
                 const resp = d["Assigned To"] ? String(d["Assigned To"]).trim() : "Não Atribuído";
@@ -1021,7 +1025,8 @@
         }
 
         function filtrarPorKPI(tipo, elemento) {
-            $('.card-kpi').removeClass('active-kpi');$(elemento).addClass('active-kpi');
+            $('.card-kpi').removeClass('active-kpi');
+            $(elemento).addClass('active-kpi');
 
             const table = $('#tblBacklog').DataTable();
             const indicador = document.getElementById('indicadorFiltro');
@@ -1039,9 +1044,9 @@
             } else if (tipo === 'DEV') {
                 badge.innerText = "Filtro: Em Desenvolvimento";
                 table.column(3).search("Desenvolv", false, true).draw();
-            } else if (tipo === 'RELEASE') {
-                badge.innerText = "Filtro: Release";
-                table.column(3).search("Release", false, true).draw();
+            } else if (tipo === 'PENDENTES') {
+                badge.innerText = "Filtro: Pendentes (Backlog, Análise, Aprovado)";
+                table.column(3).search("^(Backlog|Análise|Analise|Aprovado)$", true, false).draw();
             } else if (tipo === 'IMPEDITIVOS') {
                 badge.innerText = "Filtro: Impeditivos";
                 table.column(3).search("Imped", false, true).draw();
