@@ -226,6 +226,16 @@
                     </div>
                 </div>
             </div>
+
+            <!-- NOVO GRÁFICO: Board Column x Department -->
+            <div class="col-12">
+                <div class="chart-card">
+                    <h5 class="fw-bold mb-3">Distribuição por Board Column x Departamento (Department)</h5>
+                    <div class="chart-container-wrapper" style="height: 320px;">
+                        <canvas id="chartBoardDept"></canvas>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Tabela de Registros com Filtros -->
@@ -300,6 +310,12 @@
         let chartEvolucaoInstance = null;
         let chartTipoInstance = null;
         let chartResponsavelInstance = null;
+        let chartBoardDeptInstance = null;
+
+        const PALETA_CORES = [
+            '#0d6efd', '#6f42c1', '#198754', '#fd7e14', '#0dcaf0',
+            '#e83e8c', '#20c997', '#ffc107', '#6610f2', '#d63384'
+        ];
 
         document.addEventListener('DOMContentLoaded', () => {
             loadAutoExcel();
@@ -403,8 +419,6 @@
             document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
 
             processData(currentFilteredData);
-
-            // Atualiza os registros listados na tabela para refletir o filtro de data aplicado
             updateTableSelection(currentFilteredData, '📋 Registros Filtrados por Data');
         }
 
@@ -417,12 +431,16 @@
             let respCount = {};
             let mensalCount = {};
 
+            // Para o novo gráfico Board Column x Department
+            let boardDeptMatrix = {};
+
             let leadTimeValues = [];
 
             data.forEach(item => {
                 const state = String(item['State'] || 'Indefinido').trim();
                 const dept = String(item['Departament'] || item['Department'] || item['Departamento'] || item['Area'] || item['Área'] || 'Sem Depto').trim();
                 const tipo = String(item['Type'] || item['Work Item Type'] || 'Outros').trim();
+                const boardCol = String(item['Board Column'] || 'Sem Board Column').trim();
                 
                 const rawResp = item['Assigned To'] || item['AssignedTo'] || item['Atribuído a'] || item['Responsável'] || 'Não Atribuído';
                 let resp = String(rawResp).trim();
@@ -433,6 +451,12 @@
                 if (!deptStatusMap[dept]) {
                     deptStatusMap[dept] = { doing: 0, done: 0 };
                 }
+
+                // Alimentando matriz Board Column x Department
+                if (!boardDeptMatrix[boardCol]) {
+                    boardDeptMatrix[boardCol] = {};
+                }
+                boardDeptMatrix[boardCol][dept] = (boardDeptMatrix[boardCol][dept] || 0) + 1;
 
                 const stateLower = state.toLowerCase();
                 if (stateLower === 'done' || stateLower === 'concluído' || stateLower === 'finalizado') {
@@ -494,7 +518,7 @@
             document.getElementById('kpiEmAndamento').innerText = emAndamento;
             document.getElementById('kpiLeadTime').innerText = leadTimeMediano;
 
-            renderCharts(deptStatusMap, mensalCount, tipoCount, respCount);
+            renderCharts(deptStatusMap, mensalCount, tipoCount, respCount, boardDeptMatrix);
         }
 
         function populateTableFilters(records) {
@@ -724,11 +748,12 @@
             }
         }
 
-        function renderCharts(deptStatusData, mensalData, tipoData, respData) {
+        function renderCharts(deptStatusData, mensalData, tipoData, respData, boardDeptMatrix) {
             if (chartStatusInstance) chartStatusInstance.destroy();
             if (chartEvolucaoInstance) chartEvolucaoInstance.destroy();
             if (chartTipoInstance) chartTipoInstance.destroy();
             if (chartResponsavelInstance) chartResponsavelInstance.destroy();
+            if (chartBoardDeptInstance) chartBoardDeptInstance.destroy();
 
             const commonOptions = {
                 responsive: true,
@@ -892,6 +917,56 @@
                     },
                     scales: {
                         x: { beginAtZero: true, ticks: { precision: 0 } }
+                    }
+                }
+            });
+
+            // 5. NOVO GRÁFICO: Board Column x Department (Barras Empilhadas)
+            const boardColumns = Object.keys(boardDeptMatrix).sort();
+            const allDepartments = Array.from(new Set(currentFilteredData.map(item => 
+                String(item['Departament'] || item['Department'] || item['Departamento'] || item['Area'] || item['Área'] || 'Sem Depto').trim()
+            ))).sort();
+
+            const boardDeptDatasets = allDepartments.map((dept, idx) => {
+                return {
+                    label: dept,
+                    data: boardColumns.map(col => boardDeptMatrix[col][dept] || 0),
+                    backgroundColor: PALETA_CORES[idx % PALETA_CORES.length]
+                };
+            });
+
+            chartBoardDeptInstance = new Chart(document.getElementById('chartBoardDept'), {
+                type: 'bar',
+                data: {
+                    labels: boardColumns,
+                    datasets: boardDeptDatasets
+                },
+                options: {
+                    ...commonOptions,
+                    onClick: (event, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const datasetIndex = activeElements[0].datasetIndex;
+                            const selectedBoardCol = boardColumns[index];
+                            const selectedDept = allDepartments[datasetIndex];
+
+                            const records = currentFilteredData.filter(item => {
+                                const col = String(item['Board Column'] || 'Sem Board Column').trim();
+                                const dept = String(item['Departament'] || item['Department'] || item['Departamento'] || item['Area'] || item['Área'] || 'Sem Depto').trim();
+                                return col === selectedBoardCol && dept === selectedDept;
+                            });
+
+                            document.querySelectorAll('.card-kpi').forEach(c => c.classList.remove('active-kpi'));
+                            updateTableSelection(records, `📊 Registros: Board Column [${selectedBoardCol}] x Dept [${selectedDept}]`);
+                            document.getElementById('detailsSection').scrollIntoView({ behavior: 'smooth' });
+                        }
+                    },
+                    plugins: {
+                        legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+                    },
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
                     }
                 }
             });
