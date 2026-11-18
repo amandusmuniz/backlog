@@ -23,7 +23,7 @@
     <!-- Chart.js DataLabels Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <!-- SheetJS (XLSX) -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <style>
         :root {
@@ -123,7 +123,7 @@
                 <button class="btn btn-light btn-sm fw-bold" onclick="carregarExcelAutomatico()">
                     🔄 Atualizar Agora
                 </button>
-				<!-- Botão para abrir o Dashboard de Finalizados -->
+                <!-- Botão para abrir o Dashboard de Finalizados -->
                 <a href="finalizados.html" class="btn btn-outline-light btn-sm fw-bold">
                     ✅ Ver Finalizados
                 </a>
@@ -132,6 +132,12 @@
     </nav>
 
     <div class="container-fluid pb-5">
+
+        <!-- Alerta de Feedback (Substitui alert()) -->
+        <div id="alertaErro" class="alert alert-danger alert-dismissible fade show d-none shadow-sm" role="alert">
+            <span id="textoAlertaErro"></span>
+            <button type="button" class="btn-close" aria-label="Close" onclick="document.getElementById('alertaErro').classList.add('d-none')"></button>
+        </div>
 
         <!-- KPIs Clicáveis -->
         <div class="row g-2 row-cols-2 row-cols-md-4 row-cols-xl-8">
@@ -349,6 +355,9 @@
         const CAPACIDADE_MENSAL = 720;
         const TEMPO_AUTO_REFRESH = 30 * 60 * 1000;
 
+        // Caminho relativo para leitura do arquivo na mesma pasta do index.html
+        const DEFAULT_FILE_NAME = "./Dashboard_Backlog_All_Pendent.xlsx";
+
         const PALETA_CORES = [
             '#0d6efd', '#6f42c1', '#198754', '#fd7e14', '#0dcaf0',
             '#e83e8c', '#20c997', '#ffc107', '#6610f2', '#d63384'
@@ -365,14 +374,20 @@
             'Sem Informação': '#6c757d'
         };
 
-        const URL_ARQUIVO_LOCAL = "./Dashboard_Backlog_All_Pendent.xlsx";
+        function exibirErro(mensagem) {
+            const alerta = document.getElementById("alertaErro");
+            document.getElementById("textoAlertaErro").innerText = mensagem;
+            alerta.classList.remove("d-none");
+        }
 
         async function carregarExcelAutomatico() {
             const horaBusca = new Date().toLocaleTimeString('pt-BR');
             document.getElementById("statusSincronizacao").innerHTML = `🕒 Última Busca: <b>${horaBusca}</b> (Buscando...)`;
+            document.getElementById("alertaErro").classList.add("d-none");
 
             try {
-                const response = await fetch(URL_ARQUIVO_LOCAL + "?v=" + new Date().getTime());
+                // Evita cache adicionando timestamp na URL
+                const response = await fetch(`${DEFAULT_FILE_NAME}?v=${new Date().getTime()}`);
                 
                 if (!response.ok) {
                     throw new Error(`Erro de rede: ${response.status} - ${response.statusText}`);
@@ -389,6 +404,7 @@
                 console.error("Não foi possível carregar o arquivo local:", err);
                 document.getElementById("statusSincronizacao").innerHTML = `🕒 Última Busca: <b>${horaBusca}</b>`;
                 document.getElementById("statusArquivo").innerHTML = `📄 Modificação do Arquivo: <b class="text-danger">Erro ao carregar arquivo local</b>`;
+                exibirErro(`Não foi possível ler o arquivo "${DEFAULT_FILE_NAME}". Certifique-se de que ele está na mesma pasta do index.html e que a página está rodando em um servidor web (HTTP/HTTPS).`);
             }
         }
 
@@ -405,11 +421,21 @@
 
         function processarExcel(buffer, horaAtualizacao, dataModificacaoArquivo) {
             try {
-                const workbook = XLSX.read(buffer, { type: "array" });
-                let sheetName = workbook.SheetNames.find(s => s.includes("Pendent")) || workbook.SheetNames[0];
+                const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+                let sheetName = workbook.SheetNames.find(s => s.toLowerCase().includes("pendent")) || workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
 
-                dadosCompletos = XLSX.utils.sheet_to_json(worksheet, { range: 1, defval: "" });
+                // Identifica dinamicamente a linha de cabeçalho caso haja título na linha 0
+                const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                let headerRowIndex = 0;
+                for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
+                    if (rawRows[i].includes("ID") || rawRows[i].includes("State") || rawRows[i].includes("Title")) {
+                        headerRowIndex = i;
+                        break;
+                    }
+                }
+
+                dadosCompletos = XLSX.utils.sheet_to_json(worksheet, { range: headerRowIndex, defval: "" });
 
                 document.getElementById("statusSincronizacao").innerHTML = `🕒 Última Busca: <b>${horaAtualizacao}</b>`;
                 document.getElementById("statusArquivo").innerHTML = `📄 Alteração do Arquivo: <b>${dataModificacaoArquivo}</b>`;
@@ -417,7 +443,7 @@
                 montarDashboard(dadosCompletos);
             } catch (err) {
                 console.error("Erro ao processar planilha:", err);
-                alert("Erro ao ler a planilha Excel.");
+                exibirErro("Erro ao ler a estrutura da planilha Excel.");
             }
         }
 
@@ -446,19 +472,15 @@
         }
 
         function montarDashboard(dados) {
-            const pendentes = dados.filter(x => x.State !== "Done");
+            const pendentes = dados.filter(x => String(x.State || "").trim() !== "Done");
 
-            const emHold = pendentes.filter(x => String(x["Board Column"]).trim().toLowerCase() === "hold");
+            const emHold = pendentes.filter(x => String(x["Board Column"] || "").trim().toLowerCase() === "hold");
 
             const pendentesAtivos = pendentes.filter(x => {
                 const boardCol = String(x["Board Column"] || "").trim().toLowerCase();
-                const isDoneFlag = String(x["Board Column Done"] || "").trim() === "1";
 
-                if (boardCol === "hold" || boardCol === "release") {
-                    return false;
-                }
-
-                if (boardCol.includes("homolog") && isDoneFlag) {
+                // Desconsidera Hold, Homologação e Release nos gráficos e indicadores de horas pendentes
+                if (boardCol === "hold" || boardCol === "release" || boardCol.includes("homolog")) {
                     return false;
                 }
 
@@ -469,17 +491,17 @@
             const totalHold = emHold.length;
             const horas = pendentesAtivos.reduce((s, x) => s + (Number(x.Hour) || 0), 0);
 
-            const homologacao = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("homolog")).length;
-            const desenvolvimento = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("desenvolv")).length;
+            // Mantém a contagem de homologação a partir de 'pendentes' para exibição no card específico
+            const homologacao = pendentes.filter(x => String(x["Board Column"] || "").toLowerCase().includes("homolog")).length;
+            const desenvolvimento = pendentesAtivos.filter(x => String(x["Board Column"] || "").toLowerCase().includes("desenvolv")).length;
             
-            // FILTRAGEM ALTERADA: Pendentes (Board Column igual a Backlog, Análise ou Aprovado)
             const numPendentes = pendentesAtivos.filter(x => {
                 const col = String(x["Board Column"] || "").trim().toLowerCase();
                 return col === "backlog" || col === "análise" || col === "analise" || col === "aprovado";
             }).length;
 
-            const impeditivos = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("imped")).length;
-            const proxSemana = pendentesAtivos.filter(x => String(x["Board Column"]).toLowerCase().includes("previs")).length;
+            const impeditivos = pendentesAtivos.filter(x => String(x["Board Column"] || "").toLowerCase().includes("imped")).length;
+            const proxSemana = pendentesAtivos.filter(x => String(x["Board Column"] || "").toLowerCase().includes("previs")).length;
 
             document.getElementById("kpiBacklog").innerText = totalAtivo;
             document.getElementById("kpiHold").innerText = totalHold;
